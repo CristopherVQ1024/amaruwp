@@ -4,6 +4,7 @@ namespace App\Controllers;
 
 use App\Models\ChatWhatsapp;
 use App\Models\EmpresaWhatsapp;
+use App\Services\WhatsAppOnboardingService;
 use Illuminate\Database\Capsule\Manager as Capsule;
 
 class WhatsappController
@@ -23,7 +24,46 @@ class WhatsappController
             'numero' => $c->C_DISPLAY_PHONE_NUMBER,
             'negocio' => $c->C_BUSINESS_NAME,
             'activo' => (bool) $c->F_STATUS,
+            'verificado' => (bool) $c->F_VERIFICADO,
+            'coexistence' => (bool) $c->F_COEXISTENCE,
         ] : null]);
+    }
+
+    public function inicio($request, $response)
+    {
+        return jsonResponse(['status' => true] + (new WhatsAppOnboardingService())->inicio());
+    }
+
+    public function guardar($request, $response)
+    {
+        $b = bodyOf($request);
+
+        if (empty($b['code'])) {
+            return jsonResponse(['status' => false, 'error' => 'Código requerido'], 400);
+        }
+
+        try {
+            (new WhatsAppOnboardingService())->guardar($this->empresa($request), (string) $b['code'], !empty($b['is_coexistence']));
+        } catch (\InvalidArgumentException $e) {
+            return jsonResponse(['status' => false, 'error' => $e->getMessage()], 400);
+        } catch (\DomainException $e) {
+            return jsonResponse(['status' => false, 'error' => $e->getMessage()], 409);
+        }
+
+        return jsonResponse(['status' => true]);
+    }
+
+    public function desconectar($request, $response)
+    {
+        $c = EmpresaWhatsapp::where('ID_EMPRESA', $this->empresa($request))->first();
+
+        if (!$c) {
+            return jsonResponse(['status' => false, 'error' => 'No hay WhatsApp conectado para esta empresa'], 404);
+        }
+
+        $avisos = (new WhatsAppOnboardingService())->desconectar($c);
+
+        return jsonResponse(['status' => true] + ($avisos ? ['meta_warnings' => $avisos] : []));
     }
 
     // guarda la conexion WABA de la empresa, el token no se devuelve nunca

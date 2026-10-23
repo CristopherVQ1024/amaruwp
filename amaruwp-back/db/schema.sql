@@ -54,6 +54,8 @@ CREATE TABLE IF NOT EXISTS `T_EMPRESAS_WHATSAPP` (
   `C_BUSINESS_NAME` varchar(150) DEFAULT NULL,
   `C_ACCESS_TOKEN` text NOT NULL,
   `F_STATUS` tinyint(1) NOT NULL DEFAULT 1,
+  `F_VERIFICADO` tinyint(1) NOT NULL DEFAULT 0,
+  `F_COEXISTENCE` tinyint(1) NOT NULL DEFAULT 0,
   `D_CREATE` datetime DEFAULT current_timestamp(),
   `D_UPDATE` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   PRIMARY KEY (`ID`),

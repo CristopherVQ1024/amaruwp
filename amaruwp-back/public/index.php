@@ -1,5 +1,10 @@
 <?php
 
+// con el servidor de PHP en local los archivos de public se sirven directo
+if (PHP_SAPI === 'cli-server' && is_file(__DIR__ . parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH)) && !str_ends_with(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), '.php')) {
+    return false;
+}
+
 use Slim\Factory\AppFactory;
 use Dotenv\Dotenv;
 use App\Config\Database;

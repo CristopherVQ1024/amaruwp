@@ -4,7 +4,7 @@ Backend PHP del agente de WhatsApp. Slim 4 y Eloquent, misma estructura que amar
 
 ## Arranque local
     composer install
-    cp .env.example .env     # completar JWT_SECRET, WA_VERIFY_TOKEN, LLM_API_KEY
+    crear el .env con DB_*, JWT_SECRET, FIREBASE_PROJECT_ID, WA_VERIFY_TOKEN y LLM_*
     php -S localhost:8000 -t public public/index.php
 
 BD MySQL `AMARUWP` en el contenedor `mysql`, esquema en `db/schema.sql`. El host del `.env` es la IP del contenedor en la red docker.

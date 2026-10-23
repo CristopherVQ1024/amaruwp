@@ -1,13 +1,89 @@
-<div class="page">
-  <div class="card">
-    <div class="brand">Amaru</div>
-    <h1>Hola, {{ auth.usuario()?.nombre ?? auth.usuario()?.email }}</h1>
-    <p class="sub">Tu empresa ya está registrada. Aquí irán el catálogo, la agenda y la conexión con WhatsApp.</p>
-    <a class="btn-salir" routerLink="/productos">
-      <app-icono nombre="package" [tamano]="18" /> Productos y servicios
-    </a>
-    <button class="btn-salir" type="button" (click)="auth.salir()">
-      <app-icono nombre="log-out" [tamano]="18" /> Cerrar sesión
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="brand">Amaru</div>
+      <h1>Hola, {{ auth.usuario()?.nombre ?? auth.usuario()?.email }}</h1>
+    </div>
+    <button class="btn-disconnect" type="button" (click)="auth.salir()">
+      <app-icono nombre="log-out" [tamano]="16" /> Cerrar sesión
     </button>
-  </div>
+  </header>
+
+  @if (wa.cargado() && !wa.conectado()) {
+    <section class="card onboarding">
+      <header class="card-header">
+        <h2 class="card-title">Conecta tu WhatsApp Business</h2>
+        <p class="card-sub">Es el primer paso: sin un número conectado el agente no puede atender a tus clientes.</p>
+      </header>
+      <ol class="steps">
+        <li>Pulsa Conectar y entra con tu cuenta de Facebook.</li>
+        <li>Elige o crea tu cuenta de WhatsApp Business y verifica el número.</li>
+        <li>Al terminar, tu agente empieza a responder en ese número.</li>
+      </ol>
+    </section>
+  }
+
+  <section id="whatsapp-business" class="card">
+    <header class="card-header">
+      <h2 class="card-title">WhatsApp Business</h2>
+      <p class="card-sub">Gestiona tu número de WhatsApp Business conectado a Amaru.</p>
+    </header>
+
+    <div class="channel-row">
+      <div class="channel-icon" style="--ch-color: #25d366">
+        <img src="icons/whatsapp-icon.svg" alt="WhatsApp" width="22" height="22">
+      </div>
+
+      <div class="channel-info">
+        <div class="channel-name">WhatsApp Business API</div>
+        <div class="channel-desc">Canal conectado para la atención automatizada del agente</div>
+      </div>
+
+      <div class="channel-actions">
+        <span class="badge" [class.badge-success]="wa.conectado()" [class.badge-neutral]="!wa.conectado()">
+          <span class="badge-dot"></span>
+          {{ wa.conectado() ? 'Conectado' : 'Desconectado' }}
+        </span>
+
+        @if (wa.cargado()) {
+          @if (!wa.conectado()) {
+            <button class="btn-connect" type="button" (click)="wa.conectar()" [disabled]="!wa.listo() || wa.trabajando()">
+              <app-icono nombre="message-circle" [tamano]="16" />
+              {{ wa.trabajando() ? 'Conectando...' : 'Conectar' }}
+            </button>
+          } @else {
+            <button class="btn-disconnect" type="button" (click)="desconectar()" [disabled]="wa.trabajando()">Desconectar</button>
+          }
+        }
+      </div>
+    </div>
+
+    @if (wa.conexion(); as c) {
+      @if (c.activo) {
+        <div class="info-grid">
+          <div class="info-item"><span class="label">Número conectado</span><span class="value">{{ c.numero || '-' }}</span></div>
+          <div class="info-item"><span class="label">Nombre comercial</span><span class="value">{{ c.negocio || '-' }}</span></div>
+          <div class="info-item"><span class="label">Phone Number ID</span><span class="value">{{ c.phone_number_id || '-' }}</span></div>
+          <div class="info-item"><span class="label">WABA ID</span><span class="value">{{ c.waba_id || '-' }}</span></div>
+          <div class="info-item"><span class="label">Verificado</span><span class="value">{{ c.verificado ? 'Sí' : 'No' }}</span></div>
+        </div>
+      }
+    }
+
+    @if (wa.error()) {
+      <div class="error" role="alert">{{ wa.error() }}</div>
+    }
+  </section>
+
+  <section class="card">
+    <header class="card-header">
+      <h2 class="card-title">Catálogo</h2>
+      <p class="card-sub">Los productos y servicios que tu agente ofrece a los clientes.</p>
+    </header>
+    <a class="btn-connect link" routerLink="/productos">
+      <app-icono nombre="package" [tamano]="16" /> Productos y servicios
+    </a>
+  </section>
+
+  <div class="toast" [class.show]="!!wa.aviso()" role="status">{{ wa.aviso() }}</div>
 </div>
