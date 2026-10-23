@@ -46,7 +46,7 @@
 }
 .feat-card { flex-shrink: 0; width: 76vw; max-width: 300px; background: white; border-radius: var(--r-card); padding: 20px; box-shadow: var(--shadow); scroll-snap-align: start; border: 1px solid oklch(100% 0 0 / 0.06); transition: transform 0.25s ease; cursor: default; -webkit-tap-highlight-color: transparent; }
 .feat-card:active { transform: scale(0.97); }
-.feat-card.hero { background: linear-gradient(140deg, oklch(55% 0.2 260), oklch(65% 0.18 160)); border: none; }
+.feat-card.hero { background: linear-gradient(140deg, #0d9488, oklch(65% 0.18 160)); border: none; }
 .feat-card.hero .fci { background: oklch(100% 0 0 / 0.15); color: white; }
 .feat-card.hero .fct { color: white; }
 .feat-card.hero .fcd { color: oklch(100% 0 0 / 0.75); }
@@ -63,7 +63,7 @@
 h1 { font-family: var(--serif); font-size: clamp(26px, 6.5vw, 48px); font-weight: 600; line-height: 1.15; letter-spacing: -0.025em; margin-bottom: 14px; }
 .sub { color: var(--muted); font-size: 15px; line-height: 1.6; margin-bottom: 32px; }
 .btn-google { width: 100%; background: var(--fg); color: #fff; border: none; padding: 18px 24px; border-radius: 14px; font-family: var(--sans); font-size: 16px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 12px; cursor: pointer; min-height: 56px; transition: all 0.4s cubic-bezier(.23,1,.32,1); box-shadow: 0 12px 28px -6px oklch(10% 0.02 260 / 0.22); -webkit-tap-highlight-color: transparent; }
-.btn-google:hover { background: var(--accent); transform: translateY(-3px); box-shadow: 0 20px 40px -8px oklch(55% 0.2 260 / 0.35); }
+.btn-google:hover { background: var(--accent); transform: translateY(-3px); box-shadow: 0 20px 40px -8px rgb(13 148 136 / 0.35); }
 .btn-google:active { transform: scale(0.98); }
 .g-icon { width: 26px; height: 26px; background: white; padding: 5px; border-radius: 7px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .footer-note { margin-top: 28px; font-size: 13px; color: var(--muted); }
@@ -90,7 +90,7 @@ h1 { font-family: var(--serif); font-size: clamp(26px, 6.5vw, 48px); font-weight
 
   .social-proof { display: none; }
   .desktop-mosaic { display: block; flex: 1; background: var(--bg-visual); position: relative; overflow: hidden; }
-  .desktop-mosaic::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse 70% 60% at 50% 50%, oklch(55% 0.2 260 / 0.1), transparent 70%); pointer-events: none; z-index: 1; }
+  .desktop-mosaic::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse 70% 60% at 50% 50%, rgb(13 148 136 / 0.1), transparent 70%); pointer-events: none; z-index: 1; }
   .desktop-mosaic::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to bottom, var(--bg-visual) 0%, transparent 18%, transparent 82%, var(--bg-visual) 100%); pointer-events: none; z-index: 50; }
   
   .mcard { 
@@ -106,20 +106,20 @@ h1 { font-family: var(--serif); font-size: clamp(26px, 6.5vw, 48px); font-weight
     transition: transform .2s cubic-bezier(.23,1,.32,1), box-shadow .2s cubic-bezier(.23,1,.32,1), border-color .4s, opacity .5s, filter .5s; 
   }
   
-  .mcard::before { content: ''; position: absolute; inset: 0; border-radius: inherit; background: radial-gradient(400px circle at var(--mx) var(--my), oklch(55% 0.2 260 / 0.18), oklch(65% 0.18 160 / 0.08) 35%, transparent 55%); opacity: 0; transition: opacity .5s; pointer-events: none; z-index: 0; }
-  .mcard::after { content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 1px; background: linear-gradient(135deg, oklch(55% 0.2 260 / 0) 0%, oklch(55% 0.2 260 / 0.7) 40%, oklch(65% 0.18 160 / 0.7) 60%, oklch(55% 0.2 260 / 0) 100%); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; opacity: 0; transition: opacity .5s; pointer-events: none; z-index: 2; }
+  .mcard::before { content: ''; position: absolute; inset: 0; border-radius: inherit; background: radial-gradient(400px circle at var(--mx) var(--my), rgb(13 148 136 / 0.18), oklch(65% 0.18 160 / 0.08) 35%, transparent 55%); opacity: 0; transition: opacity .5s; pointer-events: none; z-index: 0; }
+  .mcard::after { content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 1px; background: linear-gradient(135deg, rgb(13 148 136 / 0) 0%, rgb(13 148 136 / 0.7) 40%, oklch(65% 0.18 160 / 0.7) 60%, rgb(13 148 136 / 0) 100%); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; opacity: 0; transition: opacity .5s; pointer-events: none; z-index: 2; }
   .mcard > * { position: relative; z-index: 1; transition: transform .2s cubic-bezier(.23,1,.32,1); }
   
   .mcard:hover { 
     animation-play-state: paused; 
     transform: perspective(1100px) rotateX(var(--rx)) rotateY(var(--ry)) translate3d(0,-10px,55px) scale(1.05) !important; 
-    box-shadow: 0 60px 120px -20px rgb(0 0 0 / 0.5), 0 20px 40px -12px oklch(55% 0.2 260 / 0.4); 
-    border-color: oklch(55% 0.2 260 / 0.5); 
+    box-shadow: 0 60px 120px -20px rgb(0 0 0 / 0.5), 0 20px 40px -12px rgb(13 148 136 / 0.4); 
+    border-color: rgb(13 148 136 / 0.5); 
     z-index: 200 !important; 
   }
   
   .mcard:hover::before, .mcard:hover::after { opacity: 1; }
-  .mcard:hover .mci { transform: translateZ(42px) scale(1.1); background: linear-gradient(135deg, oklch(55% 0.2 260 / 0.14), oklch(65% 0.18 160 / 0.14)); box-shadow: 0 10px 20px -6px oklch(55% 0.2 260 / 0.4); }
+  .mcard:hover .mci { transform: translateZ(42px) scale(1.1); background: linear-gradient(135deg, rgb(13 148 136 / 0.14), oklch(65% 0.18 160 / 0.14)); box-shadow: 0 10px 20px -6px rgb(13 148 136 / 0.4); }
   .mcard:hover .mct { transform: translateZ(28px); }
   .mcard:hover .mcd { transform: translateZ(14px); }
   
@@ -135,7 +135,7 @@ h1 { font-family: var(--serif); font-size: clamp(26px, 6.5vw, 48px); font-weight
   .c2 {width:210px;top:20%;left:45%;animation-delay:1.2s}
   .c3 {width:240px;top:14%;right:3%;animation-delay:2.5s}
   .c4 {width:230px;top:39%;left:6%;animation-delay:4s}
-  .c5 {width:300px;top:42%;left:38%;animation-delay:5.5s;z-index:10;border:2px solid oklch(55% 0.2 260 / 0.5)}
+  .c5 {width:300px;top:42%;left:38%;animation-delay:5.5s;z-index:10;border:2px solid rgb(13 148 136 / 0.5)}
   .c6 {width:195px;top:35%;right:4%;animation-delay:7s}
   .c7 {width:230px;top:58%;left:6%;animation-delay:3.5s}
   .c8 {width:240px;top:64%;left:42%;animation-delay:8.5s}

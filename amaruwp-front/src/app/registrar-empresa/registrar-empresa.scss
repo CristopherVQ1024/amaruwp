@@ -30,7 +30,7 @@
 }
 .aurora::before {
   top: -10%; left: -15%;
-  background: radial-gradient(circle, oklch(55% 0.2 260 / .55), transparent 60%);
+  background: radial-gradient(circle, rgb(13 148 136 / .55), transparent 60%);
   transform: translate(calc((var(--mx) - 50%) * .25), calc((var(--my) - 50%) * .25));
 }
 .aurora::after {
@@ -43,7 +43,7 @@
 .spotlight {
   position: absolute; inset: 0; z-index: 0; pointer-events: none;
   background: radial-gradient(280px circle at var(--sx, -200px) var(--sy, -200px),
-    oklch(55% 0.2 260 / .25), oklch(65% 0.18 160 / .08) 40%, transparent 65%);
+    rgb(13 148 136 / .25), oklch(65% 0.18 160 / .08) 40%, transparent 65%);
   transition: opacity .4s; opacity: 0;
 }
 .visual-section.hovering .spotlight { opacity: 1; }
@@ -123,8 +123,8 @@
   font-size: 10px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
   color: oklch(80% 0.08 260);
   padding: 5px 9px; border-radius: 999px;
-  background: oklch(55% 0.2 260 / .15);
-  border: 1px solid oklch(55% 0.2 260 / .35);
+  background: rgb(13 148 136 / .15);
+  border: 1px solid rgb(13 148 136 / .35);
   display: inline-flex; align-items: center; gap: 6px;
 }
 .brand-pill::before {
@@ -190,17 +190,17 @@
 
 .step-card::before {
   content: ''; position: absolute; inset: 0; border-radius: inherit;
-  background: linear-gradient(135deg, oklch(55% 0.2 260 / 0.22), oklch(65% 0.18 160 / .12) 60%, transparent);
+  background: linear-gradient(135deg, rgb(13 148 136 / 0.22), oklch(65% 0.18 160 / .12) 60%, transparent);
   opacity: 0; transition: opacity .55s;
   pointer-events: none;
 }
 .step-card.active {
-  border-color: oklch(55% 0.2 260 / 0.55);
+  border-color: rgb(13 148 136 / 0.55);
   background: oklch(100% 0 0 / 0.075);
-  box-shadow: 0 16px 40px -16px oklch(55% 0.2 260 / 0.55);
+  box-shadow: 0 16px 40px -16px rgb(13 148 136 / 0.55);
 }
 .step-card.active::before { opacity: 1; }
-.step-card:hover { border-color: oklch(55% 0.2 260 / 0.45); }
+.step-card:hover { border-color: rgb(13 148 136 / 0.45); }
 
 .step-num {
   width: 28px; height: 28px; flex-shrink: 0;
@@ -215,7 +215,7 @@
 .step-card.active .step-num {
   background: linear-gradient(135deg, var(--accent), var(--success));
   color: white;
-  box-shadow: 0 6px 14px -2px oklch(55% 0.2 260 / 0.6);
+  box-shadow: 0 6px 14px -2px rgb(13 148 136 / 0.6);
   transform: scale(1.05);
 }
 .step-num .check { display: none; }
@@ -279,7 +279,7 @@
 .feat-row .ico {
   width: 28px; height: 28px;
   border-radius: 8px;
-  background: linear-gradient(135deg, oklch(55% 0.2 260 / .2), oklch(65% 0.18 160 / .15));
+  background: linear-gradient(135deg, rgb(13 148 136 / .2), oklch(65% 0.18 160 / .15));
   color: var(--success);
   display: flex; align-items: center; justify-content: center;
   transition: transform .4s;
@@ -422,7 +422,7 @@
 .btn-submit > * { position: relative; z-index: 1; }
 .btn-submit:hover:not(:disabled) {
   transform: translateY(-3px);
-  box-shadow: 0 20px 40px -8px oklch(55% 0.2 260 / 0.4);
+  box-shadow: 0 20px 40px -8px rgb(13 148 136 / 0.4);
 }
 .btn-submit:hover:not(:disabled)::before { opacity: 1; }
 .btn-submit:active:not(:disabled) { transform: scale(0.98); }

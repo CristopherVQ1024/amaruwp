@@ -17,9 +17,7 @@
     --accent: #0d9488;
     --accent-2: #0f766e;
     --accent-soft: rgba(13, 148, 136, 0.10);
-    --amaru-blue: #2563eb;
-    --amaru-blue-2: #1d4ed8;
-    --amaru-blue-soft: rgba(37, 99, 235, 0.10);
+    --accent-3: #115e59;
     --success: #047857;
     --success-soft: #ecfdf5;
     --danger: #b91c1c;
@@ -36,9 +34,9 @@
     --font-mono: 'JetBrains Mono', 'SF Mono', ui-monospace, monospace;
 
     display: block;
-    max-width: 1180px;
-    margin: 0 auto;
+    min-height: 100vh;
     padding: 28px 20px;
+    background: var(--bg);
     font-family: var(--font-body);
     color: var(--ink-2);
 }
@@ -93,20 +91,21 @@
 }
 
 .btn-primary {
-    background: linear-gradient(180deg, var(--amaru-blue), var(--amaru-blue-2));
+    background: var(--accent);
     color: #fff;
-    border-color: var(--amaru-blue-2);
+    border-color: var(--accent);
     box-shadow:
         0 1px 0 rgba(255, 255, 255, 0.20) inset,
-        0 6px 16px -8px rgba(37, 99, 235, 0.50);
+        0 6px 16px -8px rgba(13, 148, 136, 0.45);
 
     &:hover {
-        background: linear-gradient(180deg, var(--amaru-blue-2), #1e40af);
+        background: var(--accent-2);
         filter: brightness(1.04);
         transform: translateY(-1px);
     }
 
     &:active {
+        background: var(--accent-3);
         transform: translateY(1px);
     }
 }
@@ -658,6 +657,13 @@ tbody tr td[colspan] {
     }
 }
 /* ─── Agregado para amaruwp ─── */
+.page-head,
+.table-card {
+    max-width: 1140px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
 .page-head {
     margin-bottom: 20px;
     animation: fadeUp 480ms cubic-bezier(.2, .7, .2, 1) both;

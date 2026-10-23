@@ -18,9 +18,7 @@
     --accent: #0d9488;
     --accent-2: #0f766e;
     --accent-soft: rgba(13, 148, 136, 0.10);
-    --amaru-blue: #2563eb;
-    --amaru-blue-2: #1d4ed8;
-    --amaru-blue-soft: rgba(37, 99, 235, 0.10);
+    --accent-3: #115e59;
     --success: #047857;
     --success-soft: #ecfdf5;
     --danger: #b91c1c;
@@ -37,6 +35,8 @@
 
     display: block;
     width: 100%;
+    min-height: 100vh;
+    background: var(--bg);
     font-family: var(--font-body);
     color: var(--ink-2);
     padding: 28px 20px;
@@ -66,7 +66,7 @@
     inset: 0;
     background:
         radial-gradient(60% 90% at 0% 0%, var(--accent-soft), transparent 60%),
-        radial-gradient(60% 90% at 100% 100%, var(--amaru-blue-soft), transparent 65%);
+        radial-gradient(60% 90% at 100% 100%, var(--accent-soft), transparent 65%);
     pointer-events: none;
     z-index: 0;
     opacity: 0.85;
@@ -180,7 +180,7 @@
 
 .progress-bar {
     height: 100%;
-    background: linear-gradient(90deg, var(--accent), var(--amaru-blue));
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
     border-radius: 999px;
     transition: width 240ms ease;
     position: relative;
@@ -344,23 +344,24 @@
 }
 
 .btn-primary {
-    background: linear-gradient(180deg, var(--amaru-blue), var(--amaru-blue-2));
+    background: var(--accent);
     color: #fff;
-    border-color: var(--amaru-blue-2);
+    border-color: var(--accent);
     box-shadow:
         0 1px 0 rgba(255, 255, 255, 0.25) inset,
-        0 8px 18px -8px rgba(37, 99, 235, 0.50);
+        0 8px 18px -8px rgba(13, 148, 136, 0.45);
 
     &:hover:not(:disabled) {
-        background: linear-gradient(180deg, var(--amaru-blue-2), #1e40af);
+        background: var(--accent-2);
         filter: brightness(1.04);
         transform: translateY(-2px);
         box-shadow:
             0 1px 0 rgba(255, 255, 255, 0.25) inset,
-            0 14px 28px -10px rgba(37, 99, 235, 0.60);
+            0 14px 28px -10px rgba(13, 148, 136, 0.55);
     }
 
     &:active:not(:disabled) {
+        background: var(--accent-3);
         transform: translateY(0) scale(0.98);
     }
 }
