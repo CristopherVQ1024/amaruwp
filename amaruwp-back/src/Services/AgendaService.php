@@ -93,45 +93,74 @@ class AgendaService
     }
 
     // horas de inicio libres de un dia, revisa disponibilidad, citas guardadas y Google Calendar
-    public function slotsLibres(string $fecha): array
-    {
-        return array_values(array_filter($this->slotsDelDia($fecha), fn($s) => $s['estado'] === 'libre'));
-    }
-
-    // todos los bloques del horario del dia con estado libre, ocupado o pasado
-    public function slotsDelDia(string $fecha, ?array $ocupados = null): array
+    // tramos del dia: horario, libres donde cabe una cita y ocupados dentro del horario, la cita empieza en cuartos de hora
+    public function tramosDelDia(string $fecha, ?array $ocupados = null): array
     {
         $dia = $this->fecha($fecha);
-        $ahora = new \DateTimeImmutable('now', $this->tz);
+        $out = ['horario' => [], 'libres' => [], 'ocupados' => [], 'duracion' => 30];
 
         $ventanas = Disponibilidad::where('ID_EMPRESA', $this->idEmpresa)->where('F_STATUS', 1)
             ->where('N_DIA_SEMANA', (int) $dia->format('N'))->orderBy('C_HORA_INICIO')->get();
 
         if ($ventanas->isEmpty()) {
-            return [];
+            return $out;
         }
 
         $ocupados ??= $this->ocupadosEntre($dia, $dia->modify('+1 day'));
+        usort($ocupados, fn($a, $b) => $a[0] <=> $b[0]);
 
-        $libres = [];
+        $ahora = $this->cuarto((new \DateTimeImmutable('now', $this->tz))->modify('+1 minute'));
 
         foreach ($ventanas as $v) {
-            $inicio = $this->dt($fecha . ' ' . $v->C_HORA_INICIO . ':00');
-            $fin = $this->dt($fecha . ' ' . $v->C_HORA_FIN . ':00');
-            $paso = new \DateInterval('PT' . (int) $v->N_SLOT_MINUTOS . 'M');
+            $ini = $this->dt("$fecha {$v->C_HORA_INICIO}:00");
+            $fin = $this->dt("$fecha {$v->C_HORA_FIN}:00");
+            $dur = (int) $v->N_SLOT_MINUTOS;
+            $out['duracion'] = $dur;
+            $out['horario'][] = [$ini, $fin];
+            $cursor = max($ini, $ahora);
 
-            for ($s = $inicio; $s->add($paso) <= $fin; $s = $s->add($paso)) {
-                $e = $s->add($paso);
+            foreach ($ocupados as [$os, $oe]) {
+                if ($oe <= $ini || $os >= $fin) {
+                    continue;
+                }
 
-                $estado = $s <= $ahora ? 'pasado' : ($this->choca($s, $e, $ocupados) ? 'ocupado' : 'libre');
+                $out['ocupados'][] = [max($os, $ini), min($oe, $fin)];
 
-                $libres[$s->format('H:i')] = ['hora_inicio' => $s->format('H:i'), 'hora_fin' => $e->format('H:i'), 'estado' => $estado];
+                if ($os > $cursor) {
+                    $this->agregarLibre($out['libres'], $cursor, $os, $dur);
+                }
+
+                $cursor = max($cursor, $oe);
+            }
+
+            if ($cursor < $fin) {
+                $this->agregarLibre($out['libres'], $cursor, $fin, $dur);
             }
         }
 
-        ksort($libres);
+        $out['ocupados'] = $this->unir($out['ocupados']);
 
-        return array_values($libres);
+        return $out;
+    }
+
+    // las horas validas mas cercanas a la pedida, en cuartos de hora
+    public function horasCercanas(string $fecha, string $hora, int $cuantas = 2): array
+    {
+        $t = $this->tramosDelDia($fecha);
+        $pedida = $this->dt("$fecha $hora:00")->getTimestamp();
+        $candidatas = [];
+
+        foreach ($t['libres'] as [$ini, $fin]) {
+            $ultimo = $fin->modify("-{$t['duracion']} minutes");
+
+            for ($c = $ini; $c <= $ultimo; $c = $c->modify('+15 minutes')) {
+                $candidatas[$c->format('H:i')] = abs($c->getTimestamp() - $pedida);
+            }
+        }
+
+        asort($candidatas);
+
+        return array_slice(array_keys($candidatas), 0, $cuantas);
     }
 
     // citas de la BD y bloques ocupados de Google en un rango, una sola consulta a cada fuente
@@ -162,8 +191,8 @@ class AgendaService
         }
         $asunto = trim((string) $asunto) !== '' ? mb_substr(trim($asunto), 0, 255) : null;
 
-        if (!preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $hora)) {
-            throw new \InvalidArgumentException('Hora invalida, usa formato HH:MM');
+        if (!preg_match('/^([01]\d|2[0-3]):(00|15|30|45)$/', $hora)) {
+            throw new \DomainException('Las citas empiezan en punto, y cuarto, y media o menos cuarto, usa formato HH:MM con minutos 00, 15, 30 o 45');
         }
 
         $producto = null;
@@ -180,18 +209,29 @@ class AgendaService
         return Capsule::connection()->transaction(function () use ($fecha, $hora, $numeroCliente, $nombre, $idProducto, $producto, $telefono, $asunto) {
             Capsule::table('T_EMPRESAS')->where('ID', $this->idEmpresa)->lockForUpdate()->first();
 
-            $slot = collect($this->slotsLibres($fecha))->firstWhere('hora_inicio', $hora);
+            $t = $this->tramosDelDia($fecha);
+            $inicio = $this->dt("$fecha $hora:00");
+            $fin = $inicio->modify("+{$t['duracion']} minutes");
 
-            if (!$slot) {
-                $ocupado = collect($this->slotsDelDia($fecha))->firstWhere('hora_inicio', $hora);
+            $cabe = false;
 
-                throw new \DomainException($ocupado && $ocupado['estado'] === 'ocupado'
-                    ? 'Ya hay una cita programada a esa hora, el horario de atencion no cambia'
-                    : 'Ese horario no esta disponible');
+            foreach ($t['libres'] as [$li, $lf]) {
+                $cabe = $cabe || ($inicio >= $li && $fin <= $lf);
             }
 
-            $inicio = $this->dt("$fecha $hora:00");
-            $fin = $this->dt("$fecha {$slot['hora_fin']}:00");
+            if (!$cabe) {
+                $enHorario = false;
+
+                foreach ($t['horario'] as [$hi, $hf]) {
+                    $enHorario = $enHorario || ($inicio >= $hi && $fin <= $hf);
+                }
+
+                throw new \DomainException(match (true) {
+                    !$enHorario => 'Esa hora esta fuera del horario de atencion o la cita no alcanza a terminar antes del cierre',
+                    $inicio <= new \DateTimeImmutable('now', $this->tz) => 'Esa hora ya paso',
+                    default => 'Ya hay una cita programada en ese horario, el horario de atencion no cambia',
+                });
+            }
 
             $cita = Cita::create([
                 'ID_EMPRESA' => $this->idEmpresa,
@@ -284,14 +324,38 @@ class AgendaService
         return new \DateTimeImmutable($s, $this->tz);
     }
 
-    private function choca(\DateTimeImmutable $s, \DateTimeImmutable $e, array $ocupados): bool
+    private function agregarLibre(array &$libres, \DateTimeImmutable $ini, \DateTimeImmutable $fin, int $dur): void
     {
-        foreach ($ocupados as [$os, $oe]) {
-            if ($s < $oe && $e > $os) {
-                return true;
+        $ini = $this->cuarto($ini);
+
+        if ($ini->modify("+$dur minutes") <= $fin) {
+            $libres[] = [$ini, $fin];
+        }
+    }
+
+    // sube al siguiente cuarto de hora si no cae justo en uno
+    private function cuarto(\DateTimeImmutable $t): \DateTimeImmutable
+    {
+        $base = $t->setTime((int) $t->format('H'), intdiv((int) $t->format('i'), 15) * 15);
+
+        return $base < $t ? $base->modify('+15 minutes') : $base;
+    }
+
+    private function unir(array $tramos): array
+    {
+        usort($tramos, fn($a, $b) => $a[0] <=> $b[0]);
+        $out = [];
+
+        foreach ($tramos as $t) {
+            $u = count($out) - 1;
+
+            if ($u >= 0 && $t[0] <= $out[$u][1]) {
+                $out[$u][1] = max($out[$u][1], $t[1]);
+            } else {
+                $out[] = $t;
             }
         }
 
-        return false;
+        return $out;
     }
 }

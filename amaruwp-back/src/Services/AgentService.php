@@ -7,6 +7,7 @@ use App\Models\Cita;
 use App\Models\Disponibilidad;
 use App\Models\Empresa;
 use App\Models\Producto;
+use App\Models\ProductoFoto;
 
 class AgentService
 {
@@ -21,6 +22,7 @@ class AgentService
     private array $ficha;
     private bool $mixto = false;
     private string $textoCliente = '';
+    private array $fotos = [];
 
     public function __construct(private int $idEmpresa, private string $phoneNumberId, private string $numeroCliente)
     {
@@ -33,7 +35,7 @@ class AgentService
     {
         $llm = new LlmClient();
         $historial = $this->historial();
-        $this->textoCliente = implode(' ', array_merge(array_column(array_filter($historial, fn ($h) => $h['role'] === 'user'), 'content'), [$mensaje]));
+        $this->textoCliente = $this->textoCliente(array_merge($historial, [['role' => 'user', 'content' => $mensaje]]));
         $categoria = $this->clasificar($llm, $mensaje, $historial);
 
         if ($categoria === 'fuera_de_contexto') {
@@ -41,6 +43,10 @@ class AgentService
         }
 
         $tools = $categoria === 'citas' && $this->tieneHorario() ? $this->tools() : [];
+
+        if ($this->puedeEnviarFoto($categoria)) {
+            $tools[] = $this->toolFoto();
+        }
         $mensajes = array_merge(
             [['role' => 'system', 'content' => $this->prompt($categoria)]],
             $this->unirTurnos(array_merge($historial, [['role' => 'user', 'content' => $mensaje]]))
@@ -62,7 +68,7 @@ class AgentService
                     continue;
                 }
 
-                return ['respuesta' => $texto, 'categoria' => $categoria];
+                return ['respuesta' => $texto, 'categoria' => $categoria, 'fotos' => $this->fotos];
             }
 
             $mensajes[] = ['role' => 'assistant', 'content' => $respuesta['content'] ?? '', 'tool_calls' => $respuesta['tool_calls']];
@@ -213,6 +219,28 @@ class AgentService
     }
 
     // junta mensajes seguidos del mismo rol, pasa cuando el dueno escribe varias veces o el cliente escribe durante una derivacion
+    // lo que escribio el cliente, mas la pregunta del asistente que el cliente acepto con un si
+    private function textoCliente(array $turnos): string
+    {
+        $partes = [];
+        $anterior = '';
+
+        foreach ($turnos as $t) {
+            if ($t['role'] === 'assistant') {
+                $anterior = $t['content'];
+                continue;
+            }
+
+            $partes[] = $t['content'];
+
+            if (preg_match('/^\W*(s+[ií]+|zi+|ok\w*|claro|correcto|exacto|dale|ya|as[ií] es|eso|afirmativo|confirmo)\b/iu', $t['content'])) {
+                $partes[] = $anterior;
+            }
+        }
+
+        return implode(' ', $partes);
+    }
+
     private function unirTurnos(array $mensajes): array
     {
         $out = [];
@@ -279,6 +307,7 @@ class AgentService
             $txt .= "- [id {$d['id']}] {$d['nombre']}";
             $txt .= $d['precio'] !== null ? ", precio {$e['moneda']} " . number_format($d['precio'], 2) : ', precio no indicado';
             $txt .= $d['requiere_cita'] ? ', REQUIERE CITA' : ', no requiere cita';
+            $txt .= $d['fotos'] ? ', tiene foto' : '';
             $txt .= $d['descripcion'] ? ". Descripcion: {$d['descripcion']}" : '. Sin descripcion';
             $txt .= "\n";
 
@@ -298,6 +327,11 @@ class AgentService
         $txt .= $horario !== '' ? $horario : "El negocio no tiene horario de atencion registrado. Nunca digas que dias ni a que horas atiende, ni que atiende todos los dias. Para citas, visitas o atencion presencial indica que lo coordinen por los telefonos del negocio.\n";
 
         $txt .= "\nREGLAS\n";
+
+        if ($this->puedeEnviarFoto($categoria)) {
+            $txt .= "- Si el cliente pregunta por un producto en especifico, como su precio, detalles, como es o quiere verlo, y ese producto tiene foto, llama a enviar_foto_producto con su id. La foto le llega sola antes de tu mensaje, no la describas ni pongas enlaces. No la uses para listados de varios productos. Las lineas [Foto: ...] del historial son fotos que el sistema ya envio, nunca escribas ese texto.\n";
+        }
+
         $txt .= "- Los precios estan en {$e['moneda']}. Escribelos tal cual con esa moneda, sin agregar aclaraciones de impuestos, IGV, IVA, descuentos ni condiciones.\n";
         $txt .= "- Tu unica fuente es la informacion de arriba, que viene de la base de datos del negocio. No tienes internet ni debes usar tu conocimiento general. Nunca inventes ni completes datos: especificaciones, caracteristicas, modelos, stock, descuentos, envios, formas de pago, precios u horarios que no esten escritos arriba. Tampoco inventes requisitos o indicaciones, como llevar DNI o documentos. Tampoco afirmes ni niegues politicas que no esten escritas, como separar o apartar productos, cambios, devoluciones, cuotas, impuestos o si el precio incluye IGV, en esos casos di que no lo tienes registrado y que el equipo lo confirma.\n";
         $txt .= "- Si el cliente pide un dato que no esta arriba, responde en una o dos lineas, nombrando el tema que pregunto, que no tienes ese dato y que el equipo se lo confirma por los telefonos del negocio. Ejemplo si pregunta por cuotas: Lo de las cuotas no lo tengo registrado, pero el equipo te lo confirma al telefono. Varia la redaccion y no agregues la lista de productos ni precios en esa respuesta.\n";
@@ -330,7 +364,7 @@ class AgentService
         if ($citas && $horario !== '') {
             $txt .= "- Si el cliente pide una hora o un dia fuera del horario, explicale que no es posible y ofrece una opcion dentro del horario.\n";
             $txt .= "- Si el cliente quiere un servicio que REQUIERE CITA, ofrece agendar.\n";
-            $txt .= "- La disponibilidad de hoy y de los proximos 7 dias esta en la lista de fechas de arriba y es la real en este momento, usala siempre en vez de lo dicho en mensajes anteriores. Una hora esta libre solo si cae dentro de Horas libres de ese dia. Usa consultar_disponibilidad solo para fechas que no estan en la lista.\n";
+            $txt .= "- La disponibilidad de hoy y de los proximos 7 dias esta en la lista de fechas de arriba y es la real en este momento, usala siempre en vez de lo dicho en mensajes anteriores. La cita empieza solo en punto, y cuarto, y media o menos cuarto, y debe empezar y terminar dentro de un mismo tramo de Horas libres. Si piden otro minuto, ofrece los cuartos de hora mas cercanos; dura 30 minutos, dato interno que no se menciona salvo que lo pregunten. Si el cliente pide una hora que cumple eso, aceptala sin proponer otra. Usa consultar_disponibilidad solo para fechas que no estan en la lista.\n";
             $txt .= "- Si el cliente pide una cita sin decir el dia, preguntale que dia prefiere, no elijas tu un dia.\n";
             $txt .= "- Si el cliente pregunta si un dia esta lleno o completo, no le des la razon por cortesia, responde segun Horas libres de ese dia. Si tiene horas libres, dile que no esta lleno y cuales son.\n";
             $txt .= "- Nunca digas que la cita esta confirmada, agendada o reservada si en este mismo turno no llamaste a reservar_cita y devolvio reservada true. Si ya tienes dia, hora, nombre y motivo, llama a reservar_cita en vez de pedir otra confirmacion. No agregues requisitos ni indicaciones que no estan arriba, como llevar DNI.\n";
@@ -352,43 +386,6 @@ class AgentService
         return $txt;
     }
 
-    // junta horas de inicio consecutivas en rangos con la hora en que termina el ultimo bloque
-    private function rangos(array $slots): array
-    {
-        $rangos = [];
-        $inicio = $fin = null;
-
-        foreach ($slots as $sl) {
-            if ($fin !== null && $sl['hora_inicio'] === $fin) {
-                $fin = $sl['hora_fin'];
-                continue;
-            }
-
-            if ($inicio !== null) {
-                $rangos[] = "$inicio a $fin";
-            }
-
-            $inicio = $sl['hora_inicio'];
-            $fin = $sl['hora_fin'];
-        }
-
-        if ($inicio !== null) {
-            $rangos[] = "$inicio a $fin";
-        }
-
-        return $rangos;
-    }
-
-    // las dos horas libres mas cercanas a la pedida para ofrecerlas cuando no calza con un bloque
-    private function horasCercanas(string $fecha, string $hora): array
-    {
-        $pedida = strtotime("$fecha $hora");
-        $horas = array_column($this->agenda->slotsLibres($fecha), 'hora_inicio');
-        usort($horas, fn ($a, $b) => abs(strtotime("$fecha $a") - $pedida) <=> abs(strtotime("$fecha $b") - $pedida));
-
-        return array_slice($horas, 0, 2);
-    }
-
     // horas libres y con cita de un dia ya en formato de 12 horas para que el modelo no las convierta
     private function disponibilidadTexto(\DateTimeImmutable $dia, array $diasConHorario, array $ocupados): string
     {
@@ -396,22 +393,30 @@ class AgentService
             return '';
         }
 
-        $slots = $this->agenda->slotsDelDia($dia->format('Y-m-d'), $ocupados);
-        $libres = $this->rangos12(array_filter($slots, fn ($sl) => $sl['estado'] === 'libre'));
-        $conCita = $this->rangos12(array_filter($slots, fn ($sl) => $sl['estado'] === 'ocupado'));
+        $t = $this->agenda->tramosDelDia($dia->format('Y-m-d'), $ocupados);
+        $libres = $this->tramos($t['libres']);
+        $conCita = $this->tramos($t['ocupados']);
 
         $txt = $libres ? ' | Horas libres: ' . implode(' y ', $libres) : ' | Sin horas libres';
 
         return $txt . ($conCita ? ' | Ya tienen cita: ' . implode(' y ', $conCita) : '');
     }
 
-    private function rangos12(array $slots): array
+    private function horasCercanasTexto(string $fecha, string $hora): array
     {
-        return array_map(function ($r) {
-            [$a, $b] = explode(' a ', $r);
+        try {
+            return array_map(fn ($h) => $this->hora12($h), $this->agenda->horasCercanas($fecha, $hora));
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
 
-            return $this->hora12($a) . ' a ' . $this->hora12($b);
-        }, $this->rangos(array_values($slots)));
+    // tramos como 9:00 a. m. a 2:00 p. m. o en 24 horas para las herramientas
+    private function tramos(array $tramos, bool $doce = true): array
+    {
+        return array_map(fn ($t) => $doce
+            ? $this->hora12($t[0]->format('H:i')) . ' a ' . $this->hora12($t[1]->format('H:i'))
+            : $t[0]->format('H:i') . ' a ' . $t[1]->format('H:i'), $tramos);
     }
 
     private function fechaTexto(\DateTimeImmutable $dia): string
@@ -470,6 +475,47 @@ class AgentService
         return Disponibilidad::where('ID_EMPRESA', $this->idEmpresa)->where('F_STATUS', 1)->exists();
     }
 
+    private function puedeEnviarFoto(string $categoria): bool
+    {
+        return in_array($categoria, ['productos', 'citas'], true) && ProductoFoto::whereIn('ID_PRODUCTO',
+            Producto::where('ID_EMPRESA', $this->idEmpresa)->where('F_STATUS', 1)->pluck('ID'))->exists();
+    }
+
+    private function toolFoto(): array
+    {
+        return ['type' => 'function', 'function' => [
+            'name' => 'enviar_foto_producto',
+            'description' => 'Envia al cliente por WhatsApp la foto de un producto que tiene foto.',
+            'parameters' => ['type' => 'object', 'properties' => [
+                'id_producto' => ['type' => 'integer', 'description' => 'Id del producto'],
+            ], 'required' => ['id_producto']],
+        ]];
+    }
+
+    // deja la foto en cola para que ChatbotService la envie, sin repetirla al mismo cliente en 24 horas
+    private function fotoProducto(int $idProducto): array
+    {
+        $producto = Producto::where('ID', $idProducto)->where('ID_EMPRESA', $this->idEmpresa)->where('F_STATUS', 1)->first();
+        $foto = $producto ? ProductoFoto::where('ID_PRODUCTO', $producto->ID)->orderBy('N_ORDEN')->orderBy('ID')->first() : null;
+
+        if (!$foto) {
+            return ['error' => 'Ese producto no tiene foto'];
+        }
+
+        $marca = "[Foto: {$producto->C_NOMBRE}]";
+        $yaEnviada = in_array($idProducto, array_column($this->fotos, 'id_producto'), true) || ChatWhatsapp::where('C_PHONE_NUMBER_ID', $this->phoneNumberId)
+            ->where('C_NUMERO_CLIENTE', $this->numeroCliente)->where('C_ORIGEN', 'FOTO')->where('C_RESPUESTA_BOT', $marca)
+            ->whereRaw('D_CREATE >= NOW() - INTERVAL 24 HOUR')->exists();
+
+        if ($yaEnviada) {
+            return ['enviada' => false, 'nota' => 'La foto ya se le envio antes, no la menciones de nuevo'];
+        }
+
+        $this->fotos[] = ['id_producto' => $idProducto, 'ruta' => $foto->C_RUTA, 'marca' => $marca, 'caption' => $producto->C_NOMBRE];
+
+        return ['enviada' => true, 'nota' => 'La foto le llega sola antes de tu mensaje'];
+    }
+
     private function tools(): array
     {
         return [
@@ -485,10 +531,10 @@ class AgentService
                 'description' => 'Registra una cita en un horario libre y la crea en el calendario de Google. Usar solo con la confirmacion del cliente.',
                 'parameters' => ['type' => 'object', 'properties' => [
                     'fecha' => ['type' => 'string', 'description' => 'Fecha en formato YYYY-MM-DD'],
-                    'hora' => ['type' => 'string', 'description' => 'Hora de inicio en formato HH:MM de 24 horas, dentro de las horas libres de ese dia'],
+                    'hora' => ['type' => 'string', 'description' => 'Hora de inicio en formato HH:MM de 24 horas con minutos 00, 15, 30 o 45, dentro de las horas libres de ese dia'],
                     'nombre_cliente' => ['type' => 'string', 'description' => 'Nombre del cliente'],
                     'asunto' => ['type' => 'string', 'description' => 'Motivo de la cita en una frase corta con las palabras del cliente, incluyendo el producto o servicio si lo menciono'],
-                    'id_producto' => ['type' => 'integer', 'description' => 'Id del producto o servicio a reservar'],
+                    'id_producto' => ['type' => 'integer', 'description' => 'Id de un producto de la lista solo si la cita es por ese producto, si no omitelo'],
                 ], 'required' => ['fecha', 'hora', 'nombre_cliente', 'asunto']],
             ]],
         ];
@@ -498,19 +544,22 @@ class AgentService
     {
         try {
             if ($nombre === 'consultar_disponibilidad') {
-                $dia = $this->agenda->slotsDelDia((string) ($args['fecha'] ?? ''));
-                $slots = array_values(array_filter($dia, fn($sl) => $sl['estado'] === 'libre'));
-                $conCita = array_values(array_filter($dia, fn($sl) => $sl['estado'] === 'ocupado'));
+                $t = $this->agenda->tramosDelDia((string) ($args['fecha'] ?? ''));
+                $slots = $t['libres'];
+                $conCita = $t['ocupados'];
 
                 return [
                     'fecha' => $args['fecha'],
-                    'horario_atencion' => $this->rangos($dia),
-                    'rangos_libres' => $this->rangos($slots),
-                    'horas_con_cita_programada' => $this->rangos($conCita),
-                    'ultima_cita_empieza' => $slots ? end($slots)['hora_inicio'] : null,
-                    'nota' => ($slots ? 'Ofrece solo los rangos libres, sin mencionar intervalos ni duracion.' : 'Sin horarios libres ese dia. No afirmes que otro dia tiene horas libres sin consultarlo antes.')
+                    'horario_atencion' => $this->tramos($t['horario'], false),
+                    'rangos_libres' => $this->tramos($slots, false),
+                    'horas_con_cita_programada' => $this->tramos($conCita, false),
+                    'nota' => ($slots ? 'Ofrece solo los rangos libres, sin mencionar duracion. La cita empieza en minutos 00, 15, 30 o 45 y sus 30 minutos deben caber dentro de un rango libre.' : 'Sin horarios libres ese dia. No afirmes que otro dia tiene horas libres sin consultarlo antes.')
                         . ($conCita ? ' Las horas con cita programada estan dentro del horario de atencion pero ya tienen una cita, si el cliente pide una de ellas dile que a esa hora ya hay una cita programada. El horario de atencion no cambia.' : ''),
                 ];
+            }
+
+            if ($nombre === 'enviar_foto_producto') {
+                return $this->fotoProducto((int) ($args['id_producto'] ?? 0));
             }
 
             if ($nombre === 'reservar_cita') {
@@ -528,7 +577,8 @@ class AgentService
                     (string) ($args['hora'] ?? ''),
                     $this->numeroCliente,
                     $args['nombre_cliente'] ?? null,
-                    isset($args['id_producto']) ? (int) $args['id_producto'] : null,
+                    // un id inventado por el modelo no debe impedir la reserva
+                    !empty($args['id_producto']) && Producto::where('ID', (int) $args['id_producto'])->where('ID_EMPRESA', $this->idEmpresa)->exists() ? (int) $args['id_producto'] : null,
                     null,
                     $args['asunto'] ?? null
                 );
@@ -538,7 +588,7 @@ class AgentService
 
             return ['error' => 'Herramienta desconocida'];
         } catch (\DomainException $e) {
-            return ['error' => $e->getMessage(), 'horas_cercanas' => $this->horasCercanas((string) ($args['fecha'] ?? ''), (string) ($args['hora'] ?? ''))];
+            return ['error' => $e->getMessage(), 'horas_cercanas' => $this->horasCercanasTexto((string) ($args['fecha'] ?? ''), (string) ($args['hora'] ?? ''))];
         } catch (\Throwable $e) {
             return ['error' => $e->getMessage()];
         }

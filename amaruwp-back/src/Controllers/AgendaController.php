@@ -100,7 +100,10 @@ class AgendaController
         return $this->run(function () use ($request) {
             $fecha = $request->getQueryParams()['fecha'] ?? '';
 
-            return ['fecha' => $fecha, 'slots' => (new AgendaService($this->empresa($request)))->slotsLibres($fecha)];
+            $t = (new AgendaService($this->empresa($request)))->tramosDelDia($fecha);
+            $hm = fn($l) => array_map(fn($x) => ['hora_inicio' => $x[0]->format('H:i'), 'hora_fin' => $x[1]->format('H:i')], $l);
+
+            return ['fecha' => $fecha, 'duracion_minutos' => $t['duracion'], 'libres' => $hm($t['libres']), 'ocupados' => $hm($t['ocupados'])];
         });
     }
 

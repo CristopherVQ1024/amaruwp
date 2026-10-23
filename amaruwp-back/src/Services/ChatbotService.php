@@ -135,11 +135,38 @@ class ChatbotService
 
         $chat->update(['C_RESPUESTA_BOT' => $resultado['respuesta'], 'C_CATEGORIA' => $resultado['categoria']]);
 
+        foreach ($resultado['fotos'] ?? [] as $foto) {
+            self::enviarFoto($m, $idEmpresa, $empresaWa, $foto, $resultado['categoria']);
+        }
+
         try {
             $idRespuesta = WhatsAppService::enviarTexto($m['phone_number_id'], $empresaWa->C_ACCESS_TOKEN, $m['from'], $resultado['respuesta']);
             $chat->update(['C_MSG_ID_RESPUESTA' => $idRespuesta ?: null]);
         } catch (\Throwable $e) {
             self::log($idEmpresa, 'envio', $e->getMessage(), $m);
+        }
+    }
+
+    // la foto queda en el historial como [Foto: producto] para no repetirla y para que el agente sepa que la envio
+    private static function enviarFoto(array $m, int $idEmpresa, EmpresaWhatsapp $empresaWa, array $foto, ?string $categoria): void
+    {
+        try {
+            $idMensaje = WhatsAppService::enviarImagen($m['phone_number_id'], $empresaWa->C_ACCESS_TOKEN, $m['from'], dirname(__DIR__, 2) . '/public/' . $foto['ruta'], $foto['caption']);
+
+            ChatWhatsapp::create([
+                'C_MSG_ID' => $idMensaje ?: null,
+                'ID_EMPRESA' => $idEmpresa,
+                'C_PHONE_NUMBER_ID' => $m['phone_number_id'],
+                'C_NUMERO_BOT' => $m['display_phone'] ?: ($empresaWa->C_DISPLAY_PHONE_NUMBER ?? ''),
+                'C_NUMERO_CLIENTE' => $m['from'],
+                'C_MENSAJE_CLIENTE' => '',
+                'C_RESPUESTA_BOT' => $foto['marca'],
+                'C_MSG_ID_RESPUESTA' => $idMensaje ?: null,
+                'C_ORIGEN' => 'FOTO',
+                'C_CATEGORIA' => $categoria,
+            ]);
+        } catch (\Throwable $e) {
+            self::log($idEmpresa, 'foto', $e->getMessage(), $foto);
         }
     }
 
