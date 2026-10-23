@@ -95,6 +95,12 @@ class AgendaService
     // horas de inicio libres de un dia, revisa disponibilidad, citas guardadas y Google Calendar
     public function slotsLibres(string $fecha): array
     {
+        return array_values(array_filter($this->slotsDelDia($fecha), fn($s) => $s['estado'] === 'libre'));
+    }
+
+    // todos los bloques del horario del dia con estado libre, ocupado o pasado
+    public function slotsDelDia(string $fecha, ?array $ocupados = null): array
+    {
         $dia = $this->fecha($fecha);
         $ahora = new \DateTimeImmutable('now', $this->tz);
 
@@ -105,17 +111,7 @@ class AgendaService
             return [];
         }
 
-        $citas = Cita::where('ID_EMPRESA', $this->idEmpresa)->where('C_STATUS', '!=', 'CANCELADA')
-            ->where('D_INICIO', '<', $dia->modify('+1 day')->format('Y-m-d H:i:s'))
-            ->where('D_FIN', '>', $dia->format('Y-m-d H:i:s'))->get();
-
-        $ocupados = $citas->map(fn($c) => [$this->dt($c->D_INICIO), $this->dt($c->D_FIN)])->all();
-
-        if ($this->google->conectado()) {
-            foreach ($this->google->ocupado($dia->format('c'), $dia->modify('+1 day')->format('c'), $this->tz->getName()) as $b) {
-                $ocupados[] = [new \DateTimeImmutable($b['start'], $this->tz), new \DateTimeImmutable($b['end'], $this->tz)];
-            }
-        }
+        $ocupados ??= $this->ocupadosEntre($dia, $dia->modify('+1 day'));
 
         $libres = [];
 
@@ -127,11 +123,9 @@ class AgendaService
             for ($s = $inicio; $s->add($paso) <= $fin; $s = $s->add($paso)) {
                 $e = $s->add($paso);
 
-                if ($s <= $ahora || $this->choca($s, $e, $ocupados)) {
-                    continue;
-                }
+                $estado = $s <= $ahora ? 'pasado' : ($this->choca($s, $e, $ocupados) ? 'ocupado' : 'libre');
 
-                $libres[$s->format('H:i')] = ['hora_inicio' => $s->format('H:i'), 'hora_fin' => $e->format('H:i')];
+                $libres[$s->format('H:i')] = ['hora_inicio' => $s->format('H:i'), 'hora_fin' => $e->format('H:i'), 'estado' => $estado];
             }
         }
 
@@ -140,8 +134,34 @@ class AgendaService
         return array_values($libres);
     }
 
-    public function reservar(string $fecha, string $hora, string $numeroCliente, ?string $nombre, ?int $idProducto): Cita
+    // citas de la BD y bloques ocupados de Google en un rango, una sola consulta a cada fuente
+    public function ocupadosEntre(\DateTimeImmutable $desde, \DateTimeImmutable $hasta): array
     {
+        $citas = Cita::where('ID_EMPRESA', $this->idEmpresa)->where('C_STATUS', '!=', 'CANCELADA')
+            ->where('D_INICIO', '<', $hasta->format('Y-m-d H:i:s'))
+            ->where('D_FIN', '>', $desde->format('Y-m-d H:i:s'))->get();
+
+        $ocupados = $citas->map(fn($c) => [$this->dt($c->D_INICIO), $this->dt($c->D_FIN)])->all();
+
+        if ($this->google->conectado()) {
+            foreach ($this->google->ocupado($desde->format('c'), $hasta->format('c'), $this->tz->getName()) as $b) {
+                $ocupados[] = [new \DateTimeImmutable($b['start'], $this->tz), new \DateTimeImmutable($b['end'], $this->tz)];
+            }
+        }
+
+        return $ocupados;
+    }
+
+    public function reservar(string $fecha, string $hora, string $numeroCliente, ?string $nombre, ?int $idProducto, ?string $telefono = null, ?string $asunto = null): Cita
+    {
+        $telefono = preg_replace('/\D/', '', $telefono ?: (ctype_digit($numeroCliente) ? $numeroCliente : '')) ?: null;
+
+        // celular peruano sin codigo de pais
+        if ($telefono && strlen($telefono) === 9) {
+            $telefono = '51' . $telefono;
+        }
+        $asunto = trim((string) $asunto) !== '' ? mb_substr(trim($asunto), 0, 255) : null;
+
         if (!preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $hora)) {
             throw new \InvalidArgumentException('Hora invalida, usa formato HH:MM');
         }
@@ -157,13 +177,17 @@ class AgendaService
         }
 
         // serializa reservas de la empresa para que dos clientes no tomen el mismo slot
-        return Capsule::connection()->transaction(function () use ($fecha, $hora, $numeroCliente, $nombre, $idProducto, $producto) {
+        return Capsule::connection()->transaction(function () use ($fecha, $hora, $numeroCliente, $nombre, $idProducto, $producto, $telefono, $asunto) {
             Capsule::table('T_EMPRESAS')->where('ID', $this->idEmpresa)->lockForUpdate()->first();
 
             $slot = collect($this->slotsLibres($fecha))->firstWhere('hora_inicio', $hora);
 
             if (!$slot) {
-                throw new \DomainException('Ese horario no esta disponible');
+                $ocupado = collect($this->slotsDelDia($fecha))->firstWhere('hora_inicio', $hora);
+
+                throw new \DomainException($ocupado && $ocupado['estado'] === 'ocupado'
+                    ? 'Ya hay una cita programada a esa hora, el horario de atencion no cambia'
+                    : 'Ese horario no esta disponible');
             }
 
             $inicio = $this->dt("$fecha $hora:00");
@@ -174,16 +198,25 @@ class AgendaService
                 'ID_PRODUCTO' => $idProducto,
                 'C_NUMERO_CLIENTE' => $numeroCliente,
                 'C_NOMBRE_CLIENTE' => $nombre,
+                'C_TELEFONO_CLIENTE' => $telefono,
+                'C_ASUNTO' => $asunto,
                 'D_INICIO' => $inicio->format('Y-m-d H:i:s'),
                 'D_FIN' => $fin->format('Y-m-d H:i:s'),
             ]);
 
             if ($this->google->conectado()) {
-                $titulo = ($producto->C_NOMBRE ?? 'Cita') . ' - ' . ($nombre ?: $numeroCliente);
+                $titulo = ($asunto ?: ($producto->C_NOMBRE ?? 'Cita')) . ' - ' . ($nombre ?: ($telefono ? "+$telefono" : $numeroCliente));
+                $detalle = array_filter([
+                    $nombre ? "Cliente: $nombre" : null,
+                    $telefono ? "Teléfono: +$telefono" : "Teléfono: oculto por WhatsApp, el cliente usa nombre de usuario. Respóndele desde su chat",
+                    $asunto ? "Asunto: $asunto" : null,
+                    $producto ? "Producto: {$producto->C_NOMBRE}" : null,
+                    'Reservado por el asistente virtual',
+                ]);
 
                 $eventId = $this->google->crearEvento([
                     'summary' => $titulo,
-                    'description' => "Cliente WhatsApp: $numeroCliente\nReservado por el asistente virtual",
+                    'description' => implode("\n", $detalle),
                     'start' => ['dateTime' => $inicio->format('c'), 'timeZone' => $this->tz->getName()],
                     'end' => ['dateTime' => $fin->format('c'), 'timeZone' => $this->tz->getName()],
                 ]);

@@ -42,7 +42,7 @@ class ChatbotService
                     // sin telefono compartido Meta manda un id de usuario como PE.123
                     $cliente = $dueno
                         ? (preg_replace('/\D/', '', $m['to'] ?? '') ?: trim($m['to_user_id'] ?? ($m['recipient_user_id'] ?? '')))
-                        : (preg_replace('/\D/', '', $m['from'] ?? '') ?: trim($m['from_user_id'] ?? ($value['contacts'][0]['user_id'] ?? '')));
+                        : (preg_replace('/\D/', '', $m['from'] ?? ($value['contacts'][0]['wa_id'] ?? '')) ?: trim($m['from_user_id'] ?? ($value['contacts'][0]['user_id'] ?? '')));
 
                     if ($cliente === '' || empty($m['id'])) {
                         self::log(null, 'webhook', 'Mensaje omitido, sin numero o sin id', $m);

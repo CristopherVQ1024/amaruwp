@@ -122,6 +122,8 @@ class AgendaController
             'id_producto' => $c->ID_PRODUCTO ? (int) $c->ID_PRODUCTO : null,
             'cliente' => $c->C_NOMBRE_CLIENTE,
             'numero_cliente' => $c->C_NUMERO_CLIENTE,
+            'telefono_cliente' => $c->C_TELEFONO_CLIENTE,
+            'asunto' => $c->C_ASUNTO,
             'inicio' => $c->D_INICIO,
             'fin' => $c->D_FIN,
             'estado' => $c->C_STATUS,
@@ -140,7 +142,9 @@ class AgendaController
                 $b['hora'] ?? '',
                 (string) ($b['numero_cliente'] ?? ''),
                 $b['nombre_cliente'] ?? null,
-                isset($b['id_producto']) ? (int) $b['id_producto'] : null
+                isset($b['id_producto']) ? (int) $b['id_producto'] : null,
+                $b['telefono_cliente'] ?? null,
+                $b['asunto'] ?? null
             );
 
             return ['cita' => ['id' => (int) $cita->ID, 'inicio' => $cita->D_INICIO, 'fin' => $cita->D_FIN]];
