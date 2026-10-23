@@ -1,0 +1,160 @@
+<div class="form-card">
+    @if (cargando()) {
+        <div class="estado">
+            <app-icono nombre="loader" [tamano]="28" class="spin" />
+            <span>Cargando producto...</span>
+        </div>
+    } @else if (errorCarga()) {
+        <div class="estado">
+            <span class="estado-error">{{ errorCarga() }}</span>
+            <button class="btn btn-secondary" type="button" (click)="volver()">Volver a productos</button>
+        </div>
+    } @else {
+        <form class="form-layout" [formGroup]="form" (ngSubmit)="guardar()">
+            <!-- ZONA DE CARGA -->
+            <div class="media-col">
+                <div class="upload-zone" (click)="!subiendo() && fileInput.click()" [class.has-image]="portada()"
+                    [class.uploading]="subiendo()">
+
+                    @if (subiendo()) {
+                        <div class="upload-progress-overlay">
+                            <app-icono nombre="loader" [tamano]="32" class="spin" />
+                            <div class="progress-text">{{ progreso() }}%</div>
+                            <div class="progress-bar-container">
+                                <div class="progress-bar" [style.width.%]="progreso()"></div>
+                            </div>
+                            <span class="status-msg">Subiendo fotos...</span>
+                        </div>
+                    } @else if (portada(); as imagen) {
+                        <img [src]="imagen" class="preview-img" alt="Vista previa">
+                        <button class="remove-btn" type="button" aria-label="Quitar foto"
+                            (click)="$event.stopPropagation(); quitarPortada()">
+                            <app-icono nombre="x" [tamano]="16" />
+                        </button>
+                    } @else {
+                        <app-icono nombre="image-plus" [tamano]="32" />
+                        <span>Cargar Imagen</span>
+                    }
+
+                    <input type="file" #fileInput class="hidden-input" (change)="onFotosSeleccionadas($event)"
+                        [accept]="tiposFoto" multiple>
+                </div>
+
+                @if (totalFotos() > 1) {
+                    <div class="thumbs">
+                        @for (foto of fotos(); track foto.id) {
+                            <div class="thumb">
+                                <img [src]="fotoUrl(foto)" alt="Foto del producto">
+                                <button class="thumb-remove" type="button" aria-label="Quitar foto"
+                                    (click)="marcarFotoParaEliminar(foto)">
+                                    <app-icono nombre="x" [tamano]="12" />
+                                </button>
+                            </div>
+                        }
+                        @for (foto of nuevasFotos(); track foto.url; let i = $index) {
+                            <div class="thumb is-new">
+                                <img [src]="foto.url" alt="Foto nueva">
+                                <button class="thumb-remove" type="button" aria-label="Quitar foto nueva"
+                                    (click)="quitarNuevaFoto(i)">
+                                    <app-icono nombre="x" [tamano]="12" />
+                                </button>
+                            </div>
+                        }
+                    </div>
+                }
+
+                <p class="media-hint">JPG, PNG, WEBP o GIF. Máximo 5 MB por imagen.</p>
+
+                @if (fotosAEliminar().length > 0) {
+                    <p class="media-hint is-pending">
+                        {{ fotosAEliminar().length === 1 ? '1 foto se eliminará' : fotosAEliminar().length + ' fotos se eliminarán' }}
+                        al guardar.
+                        <button class="link-btn" type="button" (click)="deshacerEliminaciones()">Deshacer</button>
+                    </p>
+                }
+            </div>
+
+            <div class="form-content">
+                @if (error()) {
+                    <div class="form-alert" role="alert">
+                        <app-icono nombre="alert" [tamano]="16" />
+                        <span>{{ error() }}</span>
+                    </div>
+                }
+
+                <div class="input-group">
+                    <label for="nombre">Nombre del producto</label>
+                    <input id="nombre" type="text" formControlName="nombre" maxlength="150"
+                        placeholder="Ej: Corte de cabello"
+                        [class.invalid]="form.controls.nombre.touched && form.controls.nombre.invalid">
+                    @if (form.controls.nombre.touched && form.controls.nombre.invalid) {
+                        <small class="field-error">El nombre es obligatorio.</small>
+                    }
+                </div>
+                <div class="input-group">
+                    <label for="descripcion">Descripción detallada</label>
+                    <textarea id="descripcion" rows="4" formControlName="descripcion"
+                        placeholder="Qué incluye, cuánto dura, qué lo diferencia..."></textarea>
+                </div>
+                <div class="input-row">
+                    <div class="input-group">
+                        <label for="precio">Precio (S/)</label>
+                        <input id="precio" type="number" formControlName="precio" min="0" step="0.01"
+                            placeholder="Ej: 30.00"
+                            [class.invalid]="form.controls.precio.touched && form.controls.precio.invalid">
+                        @if (form.controls.precio.touched && form.controls.precio.invalid) {
+                            <small class="field-error">El precio no puede ser negativo.</small>
+                        }
+                    </div>
+                    <div class="input-group">
+                        <span class="group-label">Reserva</span>
+                        <label class="toggle">
+                            <input type="checkbox" formControlName="requiere_cita">
+                            <span class="toggle-track"></span>
+                            <span class="toggle-text">
+                                {{ form.controls.requiere_cita.value ? 'Requiere cita' : 'Sin cita' }}
+                            </span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="input-group" formArrayName="faq">
+                    <span class="group-label">Preguntas frecuentes</span>
+                    <span class="group-hint">El agente las usa para responder sin inventar información.</span>
+
+                    @for (fila of faq.controls; track fila; let i = $index) {
+                        <div class="faq-row" [formGroupName]="i">
+                            <input type="text" formControlName="pregunta" maxlength="500"
+                                placeholder="¿Cuánto dura el servicio?" [attr.aria-label]="'Pregunta ' + (i + 1)">
+                            <input type="text" formControlName="respuesta" placeholder="Respuesta"
+                                [attr.aria-label]="'Respuesta ' + (i + 1)">
+                            <button class="faq-remove" type="button" (click)="quitarFaq(i)" aria-label="Quitar pregunta">
+                                <app-icono nombre="x" [tamano]="14" />
+                            </button>
+                        </div>
+                    }
+
+                    <button class="btn btn-secondary btn-sm" type="button" (click)="agregarFaq()">
+                        <app-icono nombre="plus" [tamano]="16" />
+                        Agregar pregunta
+                    </button>
+                </div>
+
+                <div class="form-actions">
+                    <button class="btn btn-secondary" type="button" (click)="volver()" [disabled]="guardando()">Cancelar</button>
+                    <button class="btn btn-primary" type="submit" [disabled]="guardando()">
+                        @if (guardando()) {
+                            Guardando...
+                        } @else {
+                            {{ esNuevo() ? 'Registrar Producto' : 'Guardar Cambios' }}
+                        }
+                    </button>
+                </div>
+            </div>
+        </form>
+    }
+</div>
+
+<div class="reg-toast" [class.show]="toast().visible" [style.backgroundColor]="toast().color" role="status">
+    {{ toast().mensaje }}
+</div>

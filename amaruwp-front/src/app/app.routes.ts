@@ -18,5 +18,23 @@ export const routes: Routes = [
     canActivate: [sesionGuard, empresaGuard],
     loadComponent: () => import('./inicio/inicio').then((m) => m.Inicio),
   },
+  {
+    path: 'productos',
+    title: 'Productos y servicios',
+    canActivate: [sesionGuard, empresaGuard],
+    loadComponent: () => import('./productos/productos').then((m) => m.ProductosPage),
+  },
+  {
+    path: 'productos/nuevo',
+    title: 'Nuevo producto',
+    canActivate: [sesionGuard, empresaGuard],
+    loadComponent: () => import('./productos/producto-form/producto-form').then((m) => m.ProductoForm),
+  },
+  {
+    path: 'productos/:id',
+    title: 'Editar producto',
+    canActivate: [sesionGuard, empresaGuard],
+    loadComponent: () => import('./productos/producto-form/producto-form').then((m) => m.ProductoForm),
+  },
   { path: '**', redirectTo: 'login' },
 ];

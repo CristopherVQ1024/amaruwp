@@ -4,6 +4,7 @@ import {
   ArrowRight, Bot, Building2, CalendarCheck, CalendarClock, Check, Clock, Headset, Layers, Leaf,
   LogOut, MapPin, MessageCircle, Package, Phone, Plus, Rocket, ShieldCheck, Smartphone, Sparkles,
   Users, X, Zap, type IconNode,
+  ArrowLeft, ImagePlus, LoaderCircle, PenLine, Trash2, TriangleAlert,
 } from 'lucide';
 
 const ICONOS: Record<string, IconNode> = {
@@ -12,6 +13,8 @@ const ICONOS: Record<string, IconNode> = {
   leaf: Leaf, 'log-out': LogOut, 'map-pin': MapPin, 'message-circle': MessageCircle, package: Package,
   phone: Phone, plus: Plus, rocket: Rocket, 'shield-check': ShieldCheck, smartphone: Smartphone,
   sparkles: Sparkles, users: Users, x: X, zap: Zap,
+  alert: TriangleAlert, 'arrow-left': ArrowLeft, 'image-plus': ImagePlus, loader: LoaderCircle,
+  'pen-line': PenLine, trash: Trash2,
 };
 
 @Component({

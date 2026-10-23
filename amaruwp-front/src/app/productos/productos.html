@@ -1,0 +1,117 @@
+<div class="page-head">
+    <a class="back-link" routerLink="/inicio">
+        <app-icono nombre="arrow-left" [tamano]="16" />
+        <span>Inicio</span>
+    </a>
+    <h1>Productos y servicios</h1>
+    <p>Lo que registres aquí es lo que el agente de WhatsApp ofrece a tus clientes.</p>
+</div>
+
+<div class="table-card">
+    <div class="header-actions">
+        <button class="btn btn-primary" type="button" routerLink="/productos/nuevo">
+            Nuevo producto
+        </button>
+    </div>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Imagen</th>
+                    <th>Descripción</th>
+                    <th>Precio</th>
+                    <th>Cita</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (cargando()) {
+                    <tr>
+                        <td colspan="5">Cargando productos...</td>
+                    </tr>
+                } @else if (error()) {
+                    <tr>
+                        <td colspan="5">
+                            <div class="row-error">{{ error() }}</div>
+                            <button class="btn btn-secondary" type="button" (click)="cargar()">Reintentar</button>
+                        </td>
+                    </tr>
+                } @else {
+                    @for (producto of productos(); track producto.id; let i = $index) {
+                        <tr [style.animation-delay]="i * 0.08 + 's'">
+                            <td>
+                                <div class="product-thumb">
+                                    @if (portada(producto); as imagen) {
+                                        <img [src]="imagen" class="thumb-img" [alt]="producto.nombre">
+                                    } @else {
+                                        <app-icono nombre="smartphone" [tamano]="20" />
+                                    }
+                                </div>
+                            </td>
+                            <td>
+                                <div class="product-name">{{ producto.nombre }}</div>
+                                <div class="product-sub">{{ producto.descripcion || 'Sin descripción' }}</div>
+                            </td>
+                            <td class="product-price">{{ precio(producto) }}</td>
+                            <td>
+                                <span class="badge" [class.badge-success]="producto.requiere_cita"
+                                    [class.badge-neutral]="!producto.requiere_cita">
+                                    {{ producto.requiere_cita ? 'Requiere cita' : 'Sin cita' }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="actions">
+                                    <button type="button" (click)="editar(producto)" [attr.aria-label]="'Editar ' + producto.nombre">
+                                        <app-icono nombre="pen-line" [tamano]="18" />
+                                    </button>
+                                    <button type="button" (click)="pedirEliminar(producto)" [attr.aria-label]="'Eliminar ' + producto.nombre">
+                                        <app-icono nombre="trash" [tamano]="18" />
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    } @empty {
+                        <tr>
+                            <td colspan="5">No hay productos registrados.</td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Confirm dialog -->
+@if (confirmando(); as producto) {
+    <div class="amk-confirm" (click)="cerrarConfirmacion()">
+        <div class="amk-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="confirm-title"
+            (click)="$event.stopPropagation()">
+            <div class="amk-confirm-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+                    stroke-linejoin="round">
+                    <path d="M3 6h18" />
+                    <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" />
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+                    <path d="M10 11v6M14 11v6" />
+                </svg>
+            </div>
+            <div class="amk-confirm-text">
+                <h3 id="confirm-title">Eliminar producto</h3>
+                <p class="amk-confirm-msg">¿Eliminar "{{ producto.nombre }}"?</p>
+                <p class="amk-confirm-hint">El agente dejará de ofrecerlo a tus clientes.</p>
+            </div>
+            <div class="amk-confirm-actions">
+                <button type="button" class="amk-confirm-cancel" (click)="cerrarConfirmacion()"
+                    [disabled]="eliminando()">Cancelar</button>
+                <button type="button" class="amk-confirm-accept" (click)="confirmarEliminar()"
+                    [disabled]="eliminando()">
+                    {{ eliminando() ? 'Eliminando...' : 'Eliminar' }}
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<div class="reg-toast" [class.show]="toast().visible" [style.backgroundColor]="toast().color" role="status">
+    {{ toast().mensaje }}
+</div>
