@@ -1,0 +1,133 @@
+<div class="page">
+
+  <div class="visual-section" [class.hovering]="hover()" (mousemove)="moverVisual($event)" (mouseleave)="salirVisual()">
+    <div class="aurora" [style.--mx]="aurora().x" [style.--my]="aurora().y"></div>
+    <div class="spotlight" [style.--sx]="foco().x" [style.--sy]="foco().y"></div>
+    <div class="grid-overlay"></div>
+    <div class="squares-bg">
+      @for (n of [1, 2, 3, 4, 5]; track n) {
+        <div class="sq" [class]="'s' + n" [style.--mx]="cuadros().x" [style.--my]="cuadros().y" [style.--rot]="cuadros().rot"></div>
+      }
+    </div>
+
+    <div class="visual-inner" [style.transform]="desplazamiento()">
+      <div class="brand-row">
+        <div class="brand-mark">Amaru</div>
+        <span class="brand-pill">Online</span>
+      </div>
+      <p class="brand-tagline">Configura tu empresa y deja que el agente atienda por ti.</p>
+
+      <div class="progress-rail">
+        @for (paso of pasos; track paso.titulo; let i = $index) {
+          <div class="rail-seg" [class.active]="pasoActivo() === i" [class.done]="pasoActivo() > i"></div>
+        }
+      </div>
+
+      <div class="step-cards">
+        @for (paso of pasos; track paso.titulo; let i = $index) {
+          <div class="step-card" [class.active]="pasoActivo() === i" [class.done]="pasoActivo() > i" (click)="elegirPaso(i)">
+            <div class="step-num">
+              <span class="num">{{ i + 1 }}</span>
+              <span class="check"><app-icono nombre="check" [tamano]="14" /></span>
+            </div>
+            <div class="step-body">
+              <div class="step-title">{{ paso.titulo }}</div>
+              <p class="step-desc">{{ paso.desc }}</p>
+            </div>
+            <span class="step-arrow"><app-icono nombre="arrow-right" [tamano]="16" /></span>
+          </div>
+        }
+      </div>
+
+      <div class="features-list">
+        <div class="feat-row"><div class="ico"><app-icono nombre="message-circle" [tamano]="14" /></div><span>Agente de WhatsApp</span></div>
+        <div class="feat-row"><div class="ico"><app-icono nombre="package" [tamano]="14" /></div><span>Productos y servicios</span></div>
+        <div class="feat-row"><div class="ico"><app-icono nombre="calendar-check" [tamano]="14" /></div><span>Agenda de citas</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="form-section">
+    <form class="form-card" [formGroup]="form" (ngSubmit)="enviar()" novalidate>
+      <div class="form-head">
+        <h1 class="form-title">Registrar empresa</h1>
+        <div class="title-bar"></div>
+        <p class="form-sub">Completa los datos de tu negocio para continuar</p>
+      </div>
+
+      <div class="form-grid">
+        <div class="field">
+          <label class="field-label" for="nombre">Nombre de la empresa <span class="req">*</span></label>
+          <input class="input" type="text" id="nombre" formControlName="nombre" placeholder="Ej: Clínica Dental Sonrisa">
+          @if (invalido('nombre')) {
+            <small class="field-error">
+              @if (form.controls.nombre.errors?.['required']) { El nombre es obligatorio }
+              @else { Mínimo 3 caracteres }
+            </small>
+          }
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="direccion">Dirección <span class="field-hint-inline">(Opcional)</span></label>
+          <input class="input" type="text" id="direccion" formControlName="direccion" placeholder="Av. Principal 123, Lima">
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="descripcion">Descripción <span class="field-hint-inline">(Opcional)</span></label>
+          <textarea class="input textarea" id="descripcion" formControlName="descripcion" rows="3"
+                    placeholder="Cuenta a qué se dedica tu negocio, qué ofreces y en qué horario atiendes"></textarea>
+          <div class="field-hint">El agente usa esta descripción para responder a tus clientes.</div>
+        </div>
+
+        <div class="field">
+          <span class="field-label">Teléfonos de contacto <span class="req">*</span></span>
+          @for (tel of telefonos.controls; track tel; let i = $index) {
+            <div class="phone-row">
+              <div class="input-phone">
+                <div class="input-phone-prefix">+51</div>
+                <input class="input-phone-num" type="tel" inputmode="numeric" maxlength="9" [formControl]="$any(tel)"
+                       [attr.aria-label]="'Teléfono ' + (i + 1)" placeholder="987654321">
+              </div>
+              @if (telefonos.length > 1) {
+                <button class="icon-btn" type="button" (click)="quitarTelefono(i)" aria-label="Quitar teléfono">
+                  <app-icono nombre="x" [tamano]="18" />
+                </button>
+              }
+            </div>
+            @if (telefonoInvalido(i)) {
+              <small class="field-error">Deben ser 9 dígitos</small>
+            }
+          }
+          <button class="add-phone" type="button" (click)="agregarTelefono()">
+            <app-icono nombre="plus" [tamano]="16" /> Agregar otro teléfono
+          </button>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-cancel" type="button" (click)="cancelar()">Cancelar</button>
+        <button class="btn btn-submit" type="submit" [disabled]="cargando()">
+          @if (!cargando()) {
+            <span>Registrar empresa</span>
+            <app-icono nombre="arrow-right" [tamano]="18" />
+          } @else {
+            <div class="loading-spinner">
+              <div class="spinner"></div>
+              <span>Procesando...</span>
+            </div>
+          }
+        </button>
+      </div>
+
+      <div class="form-footer">
+        <app-icono nombre="shield-check" [tamano]="14" />
+        <span>Tus datos están seguros y solo se usan para el funcionamiento de tu agente.</span>
+      </div>
+    </form>
+  </div>
+
+  <div class="reg-toast" [class.show]="toast().visible" [style.backgroundColor]="toast().color" role="status">
+    {{ toast().mensaje }}
+  </div>
+
+</div>

@@ -34,13 +34,7 @@ class WebhookController
         }
 
         $payload = json_decode($raw, true);
-        $nuevos = [];
-
-        foreach (ChatbotService::mensajes(is_array($payload) ? $payload : []) as $m) {
-            if (ChatbotService::encolar($m)) {
-                $nuevos[] = $m;
-            }
-        }
+        $nuevos = ChatbotService::mensajes(is_array($payload) ? $payload : []);
 
         // se responde 200 a Meta y el agente trabaja despues de cerrar la conexion
         if ($nuevos) {

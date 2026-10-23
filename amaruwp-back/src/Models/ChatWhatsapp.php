@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class ChatWhatsapp extends Model
 {
-    protected $table = 'CHATBOT_T_CHAT_WHATSAPP';
+    protected $table = 'AGENTE_T_CHAT_WHATSAPP';
     protected $primaryKey = 'ID';
     public $timestamps = false;
     protected $guarded = [];

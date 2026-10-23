@@ -25,6 +25,15 @@ $errorMiddleware = $app->addErrorMiddleware($debug, true, true);
 $errorMiddleware->setDefaultErrorHandler(function ($request, \Throwable $e) use ($app, $debug) {
     $data = ['status' => false, 'error' => $e->getMessage()];
 
+    if (!$e instanceof \Slim\Exception\HttpException || $e->getCode() >= 500) {
+        \App\Services\ChatbotService::log(
+            $request->getAttribute('token')->id_empresa ?? null,
+            'api',
+            $e->getMessage(),
+            ['ruta' => $request->getMethod() . ' ' . $request->getUri()->getPath(), 'archivo' => $e->getFile() . ':' . $e->getLine()]
+        );
+    }
+
     if ($debug) {
         $data['file'] = $e->getFile();
         $data['line'] = $e->getLine();

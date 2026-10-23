@@ -6,6 +6,7 @@ use App\Models\Empresa;
 use App\Models\EmpresaTelefono;
 use App\Models\User;
 use Firebase\JWT\JWT;
+use Firebase\JWT\Key;
 use GuzzleHttp\Client;
 use Illuminate\Database\Capsule\Manager as Capsule;
 
@@ -96,43 +97,77 @@ class AuthService
         return $this->sesion($user);
     }
 
-    // valida el id token de Google y crea el usuario si no existe
+    // valida el id token de Firebase y crea el usuario si no existe
     public function loginGoogle(string $credential): array
     {
-        $res = (new Client(['http_errors' => false, 'timeout' => 15]))
-            ->get('https://oauth2.googleapis.com/tokeninfo', ['query' => ['id_token' => $credential]]);
+        $info = $this->verificarFirebase($credential);
 
-        $info = json_decode((string) $res->getBody(), true);
-
-        if ($res->getStatusCode() !== 200 || empty($info['sub'])) {
-            throw new \InvalidArgumentException('Token de Google invalido');
-        }
-
-        $clientId = $_ENV['GOOGLE_CLIENT_ID'] ?? '';
-
-        if ($clientId === '' || ($info['aud'] ?? '') !== $clientId) {
-            throw new \InvalidArgumentException('Token de Google emitido para otra aplicacion');
-        }
-
-        if (($info['email_verified'] ?? 'false') !== 'true' && ($info['email_verified'] ?? false) !== true) {
+        if (empty($info->email) || empty($info->email_verified)) {
             throw new \InvalidArgumentException('El correo de Google no esta verificado');
         }
 
-        $email = strtolower($info['email']);
-        $user = User::where('C_GOOGLE_ID', $info['sub'])->orWhere('C_EMAIL', $email)->first();
+        $email = strtolower($info->email);
+        $uid = $info->sub;
+        $user = User::where('C_GOOGLE_ID', $uid)->orWhere('C_EMAIL', $email)->first();
 
         if (!$user) {
             $user = User::create([
                 'C_EMAIL' => $email,
-                'C_NOMBRE' => $info['name'] ?? null,
-                'C_GOOGLE_ID' => $info['sub'],
-                'C_FOTO' => $info['picture'] ?? null,
+                'C_NOMBRE' => $info->name ?? null,
+                'C_GOOGLE_ID' => $uid,
+                'C_FOTO' => $info->picture ?? null,
             ]);
         } elseif (!$user->C_GOOGLE_ID) {
-            $user->update(['C_GOOGLE_ID' => $info['sub'], 'C_FOTO' => $user->C_FOTO ?: ($info['picture'] ?? null)]);
+            $user->update(['C_GOOGLE_ID' => $uid, 'C_FOTO' => $user->C_FOTO ?: ($info->picture ?? null)]);
         }
 
         return $this->sesion($user);
+    }
+
+    private function verificarFirebase(string $idToken): object
+    {
+        $projectId = $_ENV['FIREBASE_PROJECT_ID'] ?? '';
+
+        if ($projectId === '') {
+            throw new \InvalidArgumentException('Falta FIREBASE_PROJECT_ID en el .env del back');
+        }
+
+        $keys = array_map(fn($cert) => new Key($cert, 'RS256'), $this->certificadosFirebase());
+        JWT::$leeway = 60;
+
+        try {
+            $info = JWT::decode($idToken, $keys);
+        } catch (\Throwable $e) {
+            throw new \InvalidArgumentException('Token de Firebase invalido');
+        }
+
+        if (($info->aud ?? '') !== $projectId || ($info->iss ?? '') !== "https://securetoken.google.com/$projectId" || empty($info->sub)) {
+            throw new \InvalidArgumentException('Token de Firebase emitido para otro proyecto');
+        }
+
+        return $info;
+    }
+
+    // certificados publicos de Firebase con cache en disco
+    private function certificadosFirebase(): array
+    {
+        $archivo = sys_get_temp_dir() . '/amaruwp_firebase_certs.json';
+
+        if (is_file($archivo) && filemtime($archivo) > time() - 3600) {
+            return json_decode(file_get_contents($archivo), true) ?: [];
+        }
+
+        $res = (new Client(['http_errors' => false, 'timeout' => 15]))
+            ->get('https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com');
+        $certs = json_decode((string) $res->getBody(), true);
+
+        if ($res->getStatusCode() !== 200 || !is_array($certs)) {
+            throw new \InvalidArgumentException('No se pudieron obtener los certificados de Firebase');
+        }
+
+        file_put_contents($archivo, json_encode($certs));
+
+        return $certs;
     }
 
     // empresa para un usuario que entro con Google y aun no tiene

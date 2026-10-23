@@ -11,7 +11,7 @@ class ChatbotService
     public static function log(?int $idEmpresa, string $funcion, string $error, array $contexto = []): void
     {
         try {
-            Capsule::table('CHATBOT_T_ERROR_LOGS')->insert([
+            Capsule::table('AGENTE_T_ERROR_LOGS')->insert([
                 'ID_EMPRESA' => $idEmpresa,
                 'C_FUNCION' => $funcion,
                 'C_ERROR' => $error,
@@ -58,27 +58,11 @@ class ChatbotService
         return $out;
     }
 
-    // registra el mensaje en la cola, devuelve false si Meta lo reenvio
-    public static function encolar(array $m): bool
-    {
-        return Capsule::table('CHATBOT_T_COLA_MENSAJES')->insertOrIgnore([
-            'C_MSG_ID' => $m['msg_id'],
-            'C_PHONE_NUMBER_ID' => $m['phone_number_id'],
-            'C_NUMERO_CLIENTE' => $m['from'],
-        ]) === 1;
-    }
-
-    private static function estadoCola(string $msgId, string $status): void
-    {
-        Capsule::table('CHATBOT_T_COLA_MENSAJES')->where('C_MSG_ID', $msgId)->update(['C_STATUS' => $status]);
-    }
-
     public static function procesar(array $m): void
     {
         $empresaWa = EmpresaWhatsapp::where('C_PHONE_NUMBER_ID', $m['phone_number_id'])->where('F_STATUS', 1)->first();
 
         if (!$empresaWa) {
-            self::estadoCola($m['msg_id'], 'ERROR_EMPRESA');
             self::log(null, 'procesar', 'Numero sin empresa activa', ['phone_number_id' => $m['phone_number_id']]);
 
             return;
@@ -87,14 +71,24 @@ class ChatbotService
         $idEmpresa = (int) $empresaWa->ID_EMPRESA;
         $texto = $m['tipo'] === 'text' && $m['texto'] !== '' ? $m['texto'] : null;
 
-        $chat = ChatWhatsapp::create([
-            'ID_EMPRESA' => $idEmpresa,
-            'C_PHONE_NUMBER_ID' => $m['phone_number_id'],
-            'C_NUMERO_BOT' => $m['display_phone'] ?: ($empresaWa->C_DISPLAY_PHONE_NUMBER ?? ''),
-            'C_NUMERO_CLIENTE' => $m['from'],
-            'C_MENSAJE_CLIENTE' => $texto ?? '[mensaje ' . $m['tipo'] . ']',
-            'C_RESPUESTA_BOT' => '',
-        ]);
+        // el indice unico de C_MSG_ID descarta los reenvios de Meta
+        try {
+            $chat = ChatWhatsapp::create([
+                'C_MSG_ID' => $m['msg_id'],
+                'ID_EMPRESA' => $idEmpresa,
+                'C_PHONE_NUMBER_ID' => $m['phone_number_id'],
+                'C_NUMERO_BOT' => $m['display_phone'] ?: ($empresaWa->C_DISPLAY_PHONE_NUMBER ?? ''),
+                'C_NUMERO_CLIENTE' => $m['from'],
+                'C_MENSAJE_CLIENTE' => $texto ?? '[mensaje ' . $m['tipo'] . ']',
+                'C_RESPUESTA_BOT' => '',
+            ]);
+        } catch (\Illuminate\Database\QueryException $e) {
+            if ($e->getCode() === '23000') {
+                return;
+            }
+
+            throw $e;
+        }
 
         try {
             $respuesta = $texto === null
@@ -105,7 +99,6 @@ class ChatbotService
                 throw new \RuntimeException('El agente devolvio una respuesta vacia');
             }
         } catch (\Throwable $e) {
-            self::estadoCola($m['msg_id'], 'ERROR_AGENTE');
             self::log($idEmpresa, 'agente', $e->getMessage(), $m);
 
             return;
@@ -115,9 +108,7 @@ class ChatbotService
 
         try {
             WhatsAppService::enviarTexto($m['phone_number_id'], $empresaWa->C_ACCESS_TOKEN, $m['from'], $respuesta);
-            self::estadoCola($m['msg_id'], 'COMPLETADO');
         } catch (\Throwable $e) {
-            self::estadoCola($m['msg_id'], 'ERROR_ENVIO');
             self::log($idEmpresa, 'envio', $e->getMessage(), $m);
         }
     }

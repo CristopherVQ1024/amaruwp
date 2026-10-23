@@ -1,0 +1,10 @@
+<div class="page">
+  <div class="card">
+    <div class="brand">Amaru</div>
+    <h1>Hola, {{ auth.usuario()?.nombre ?? auth.usuario()?.email }}</h1>
+    <p class="sub">Tu empresa ya está registrada. Aquí irán el catálogo, la agenda y la conexión con WhatsApp.</p>
+    <button class="btn-salir" type="button" (click)="auth.salir()">
+      <app-icono nombre="log-out" [tamano]="18" /> Cerrar sesión
+    </button>
+  </div>
+</div>

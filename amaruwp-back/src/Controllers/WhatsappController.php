@@ -57,7 +57,7 @@ class WhatsappController
     public function chats($request, $response)
     {
         $ultimos = ChatWhatsapp::where('ID_EMPRESA', $this->empresa($request))
-            ->whereIn('ID', fn($q) => $q->from('CHATBOT_T_CHAT_WHATSAPP')->selectRaw('MAX(ID)')->where('ID_EMPRESA', $this->empresa($request))->groupBy('C_NUMERO_CLIENTE'))
+            ->whereIn('ID', fn($q) => $q->from('AGENTE_T_CHAT_WHATSAPP')->selectRaw('MAX(ID)')->where('ID_EMPRESA', $this->empresa($request))->groupBy('C_NUMERO_CLIENTE'))
             ->orderByDesc('ID')->get()->map(fn($c) => [
                 'numero_cliente' => $c->C_NUMERO_CLIENTE,
                 'ultimo_mensaje' => $c->C_MENSAJE_CLIENTE,

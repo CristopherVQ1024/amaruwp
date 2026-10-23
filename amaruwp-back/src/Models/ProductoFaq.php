@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class ProductoFaq extends Model
 {
-    protected $table = 'CHATBOT_T_PRODUCTOS_FAQ';
+    protected $table = 'AGENTE_T_PRODUCTOS_FAQ';
     protected $primaryKey = 'ID';
     public $timestamps = false;
     protected $guarded = [];

@@ -104,7 +104,7 @@ class AgendaService
         $producto = null;
 
         if ($idProducto) {
-            $producto = Capsule::table('CHATBOT_T_PRODUCTOS')->where('ID', $idProducto)->where('ID_EMPRESA', $this->idEmpresa)->first();
+            $producto = Capsule::table('AGENTE_T_PRODUCTOS')->where('ID', $idProducto)->where('ID_EMPRESA', $this->idEmpresa)->first();
 
             if (!$producto) {
                 throw new \InvalidArgumentException('Producto no encontrado');

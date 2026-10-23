@@ -1,1 +1,26 @@
-/* You can add global styles to this file, and also import other style files */
+:root {
+  --bg-form:   oklch(98% 0.008 80);
+  --bg-visual: oklch(12% 0.015 260);
+  --fg:        oklch(10% 0.02 260);
+  --muted:     oklch(50% 0.015 260);
+  --border:    oklch(90% 0.01 80);
+  --accent:    oklch(55% 0.2 260);
+  --accent-soft: oklch(55% 0.2 260 / 0.12);
+  --success:   oklch(65% 0.18 160);
+  --danger:    oklch(58% 0.22 25);
+  --serif:     'Newsreader', Georgia, serif;
+  --sans:      'Plus Jakarta Sans', system-ui, sans-serif;
+  --r-card:    18px;
+  --r-input:   14px;
+  --shadow:    0 20px 50px -10px rgb(0 0 0 / 0.18);
+  --shadow-lg: 0 40px 80px -15px rgb(0 0 0 / 0.18);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; }
+
+html, body { min-height: 100%; background: var(--bg-form); }
+
+button { font: inherit; }
+
+@keyframes fadeUp   { from{opacity:0;transform:translateY(28px)} to{opacity:1;transform:translateY(0)} }
+@keyframes fadeDown { from{opacity:0;transform:translateY(-28px)} to{opacity:1;transform:translateY(0)} }
