@@ -19,6 +19,7 @@ export interface NuevaEmpresa {
   direccion: string;
   descripcion: string;
   telefonos: string[];
+  horarios: { dia_semana: number; hora_inicio: string; hora_fin: string; slot_minutos: number }[];
 }
 
 interface Sesion {

@@ -15,6 +15,7 @@ class EmpresaService
             'direccion' => $empresa->C_DIRECCION,
             'descripcion' => $empresa->C_DESCRIPCION,
             'timezone' => $empresa->C_TIMEZONE,
+            'moneda' => $empresa->C_MONEDA,
             'telefonos' => EmpresaTelefono::where('ID_EMPRESA', $empresa->ID)->orderBy('ID')->pluck('C_TELEFONO')->all(),
         ];
     }

@@ -118,6 +118,8 @@ class WhatsappController
                 'id' => (int) $c->ID,
                 'mensaje_cliente' => $c->C_MENSAJE_CLIENTE,
                 'respuesta_bot' => $c->C_RESPUESTA_BOT,
+                'origen' => $c->C_ORIGEN,
+                'categoria' => $c->C_CATEGORIA,
                 'fecha' => $c->D_CREATE,
             ])->all();
 

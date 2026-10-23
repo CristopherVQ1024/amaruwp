@@ -22,29 +22,37 @@ class ChatbotService
         }
     }
 
-    // extrae los mensajes entrantes de un payload de Meta
+    // extrae los mensajes de clientes y los que el dueno envia desde la app de WhatsApp Business
     public static function mensajes(array $payload): array
     {
         $out = [];
 
         foreach ($payload['entry'] ?? [] as $entry) {
             foreach ($entry['changes'] ?? [] as $change) {
-                if (($change['field'] ?? '') !== 'messages') {
+                $campo = $change['field'] ?? '';
+
+                if ($campo !== 'messages' && $campo !== 'smb_message_echoes') {
                     continue;
                 }
 
                 $value = $change['value'] ?? [];
+                $dueno = $campo === 'smb_message_echoes';
 
-                foreach ($value['messages'] ?? [] as $m) {
-                    $from = preg_replace('/\D/', '', $m['from'] ?? '');
+                foreach ($value[$dueno ? 'message_echoes' : 'messages'] ?? [] as $m) {
+                    // sin telefono compartido Meta manda un id de usuario como PE.123
+                    $cliente = $dueno
+                        ? (preg_replace('/\D/', '', $m['to'] ?? '') ?: trim($m['to_user_id'] ?? ($m['recipient_user_id'] ?? '')))
+                        : (preg_replace('/\D/', '', $m['from'] ?? '') ?: trim($m['from_user_id'] ?? ($value['contacts'][0]['user_id'] ?? '')));
 
-                    if ($from === '' || empty($m['id'])) {
+                    if ($cliente === '' || empty($m['id'])) {
+                        self::log(null, 'webhook', 'Mensaje omitido, sin numero o sin id', $m);
                         continue;
                     }
 
                     $out[] = [
                         'msg_id' => $m['id'],
-                        'from' => $from,
+                        'from' => $cliente,
+                        'dueno' => $dueno,
                         'tipo' => $m['type'] ?? 'text',
                         'texto' => trim($m['text']['body'] ?? ''),
                         'nombre' => $value['contacts'][0]['profile']['name'] ?? null,
@@ -71,6 +79,14 @@ class ChatbotService
         $idEmpresa = (int) $empresaWa->ID_EMPRESA;
         $texto = $m['tipo'] === 'text' && $m['texto'] !== '' ? $m['texto'] : null;
 
+        if (!empty($m['dueno'])) {
+            self::registrarDueno($m, $idEmpresa, $empresaWa, $texto);
+
+            return;
+        }
+
+        $derivado = DerivacionService::activa($m['phone_number_id'], $m['from']);
+
         // el indice unico de C_MSG_ID descarta los reenvios de Meta
         try {
             $chat = ChatWhatsapp::create([
@@ -81,6 +97,7 @@ class ChatbotService
                 'C_NUMERO_CLIENTE' => $m['from'],
                 'C_MENSAJE_CLIENTE' => $texto ?? '[mensaje ' . $m['tipo'] . ']',
                 'C_RESPUESTA_BOT' => '',
+                'C_ORIGEN' => $derivado ? 'DERIVADO' : 'BOT',
             ]);
         } catch (\Illuminate\Database\QueryException $e) {
             if ($e->getCode() === '23000') {
@@ -90,26 +107,78 @@ class ChatbotService
             throw $e;
         }
 
+        if ($derivado) {
+            return;
+        }
+
         try {
-            $respuesta = $texto === null
-                ? 'Por ahora solo puedo leer mensajes de texto. Escribeme tu consulta y con gusto te ayudo.'
+            $resultado = $texto === null
+                ? ['respuesta' => 'Por ahora solo puedo leer mensajes de texto. Escribeme tu consulta y con gusto te ayudo.', 'categoria' => null]
                 : (new AgentService($idEmpresa, $m['phone_number_id'], $m['from']))->responder($texto);
 
-            if ($respuesta === '') {
+            if ($resultado['respuesta'] === '') {
                 throw new \RuntimeException('El agente devolvio una respuesta vacia');
             }
         } catch (\Throwable $e) {
             self::log($idEmpresa, 'agente', $e->getMessage(), $m);
+            self::avisarDemora($m['phone_number_id'], $empresaWa->C_ACCESS_TOKEN, $m['from'], $idEmpresa);
 
             return;
         }
 
-        $chat->update(['C_RESPUESTA_BOT' => $respuesta]);
+        // el dueno pudo tomar el chat mientras el agente pensaba
+        if (DerivacionService::activa($m['phone_number_id'], $m['from'])) {
+            $chat->update(['C_ORIGEN' => 'DERIVADO', 'C_CATEGORIA' => $resultado['categoria']]);
+
+            return;
+        }
+
+        $chat->update(['C_RESPUESTA_BOT' => $resultado['respuesta'], 'C_CATEGORIA' => $resultado['categoria']]);
 
         try {
-            WhatsAppService::enviarTexto($m['phone_number_id'], $empresaWa->C_ACCESS_TOKEN, $m['from'], $respuesta);
+            $idRespuesta = WhatsAppService::enviarTexto($m['phone_number_id'], $empresaWa->C_ACCESS_TOKEN, $m['from'], $resultado['respuesta']);
+            $chat->update(['C_MSG_ID_RESPUESTA' => $idRespuesta ?: null]);
         } catch (\Throwable $e) {
             self::log($idEmpresa, 'envio', $e->getMessage(), $m);
+        }
+    }
+
+    private static function registrarDueno(array $m, int $idEmpresa, EmpresaWhatsapp $empresaWa, ?string $texto): void
+    {
+        // un eco de un mensaje que envio el propio bot no cuenta como intervencion del dueno
+        if (ChatWhatsapp::where('C_MSG_ID_RESPUESTA', $m['msg_id'])->exists()) {
+            return;
+        }
+
+        try {
+            ChatWhatsapp::create([
+                'C_MSG_ID' => $m['msg_id'],
+                'ID_EMPRESA' => $idEmpresa,
+                'C_PHONE_NUMBER_ID' => $m['phone_number_id'],
+                'C_NUMERO_BOT' => $m['display_phone'] ?: ($empresaWa->C_DISPLAY_PHONE_NUMBER ?? ''),
+                'C_NUMERO_CLIENTE' => $m['from'],
+                'C_MENSAJE_CLIENTE' => '',
+                'C_RESPUESTA_BOT' => $texto ?? '[mensaje ' . $m['tipo'] . ']',
+                'C_ORIGEN' => 'DUENO',
+            ]);
+        } catch (\Illuminate\Database\QueryException $e) {
+            if ($e->getCode() === '23000') {
+                return;
+            }
+
+            throw $e;
+        }
+
+        DerivacionService::renovar($idEmpresa, $m['phone_number_id'], $m['from']);
+    }
+
+    // si el agente falla el cliente recibe un aviso en vez de silencio
+    private static function avisarDemora(string $phoneNumberId, string $token, string $to, int $idEmpresa): void
+    {
+        try {
+            WhatsAppService::enviarTexto($phoneNumberId, $token, $to, 'Disculpa, estamos con una demora en este momento. En breve te respondemos.');
+        } catch (\Throwable $e) {
+            self::log($idEmpresa, 'envio_demora', $e->getMessage(), ['to' => $to]);
         }
     }
 }

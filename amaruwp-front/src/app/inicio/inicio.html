@@ -75,6 +75,61 @@
     }
   </section>
 
+  <section id="google-calendar" class="card">
+    <header class="card-header">
+      <h2 class="card-title">Google Calendar</h2>
+      <p class="card-sub">Tu agente revisa tu calendario para no cruzar citas y crea el evento cuando reserva.</p>
+    </header>
+
+    <div class="channel-row">
+      <div class="channel-icon" style="--ch-color: #4285f4">
+        <app-icono nombre="calendar-clock" [tamano]="22" />
+      </div>
+
+      <div class="channel-info">
+        <div class="channel-name">Google Calendar</div>
+        <div class="channel-desc">{{ estadoGoogle()?.email || 'Conecta la cuenta donde quieres ver tus citas' }}</div>
+      </div>
+
+      <div class="channel-actions">
+        <span class="badge" [class.badge-success]="estadoGoogle()?.conectado" [class.badge-neutral]="!estadoGoogle()?.conectado">
+          <span class="badge-dot"></span>
+          {{ estadoGoogle()?.conectado ? 'Conectado' : 'Desconectado' }}
+        </span>
+
+        @if (estadoGoogle(); as g) {
+          @if (!g.conectado) {
+            <button class="btn-connect" type="button" (click)="conectarGoogle()" [disabled]="trabajandoGoogle()">
+              <app-icono nombre="calendar-check" [tamano]="16" />
+              {{ trabajandoGoogle() ? 'Conectando...' : 'Conectar' }}
+            </button>
+          } @else {
+            <button class="btn-disconnect" type="button" (click)="desconectarGoogle()" [disabled]="trabajandoGoogle()">Desconectar</button>
+          }
+        }
+      </div>
+    </div>
+  </section>
+
+  <section id="agenda" class="card">
+    <header class="card-header">
+      <h2 class="card-title">Horario de atención para citas</h2>
+      <p class="card-sub">Marca los días en que atiendes y la hora de inicio y fin. Aplica igual a todos los días marcados y cada cita dura 30 minutos.</p>
+    </header>
+
+    <app-horario-editor [(horario)]="horario" />
+
+    <div class="acciones">
+      <button class="btn-connect" type="button" (click)="guardarHorario()" [disabled]="guardandoHorario() || !hayCambios()">
+        {{ guardandoHorario() ? 'Guardando...' : 'Guardar horario' }}
+      </button>
+    </div>
+
+    @if (errorAgenda()) {
+      <div class="error" role="alert">{{ errorAgenda() }}</div>
+    }
+  </section>
+
   <section class="card">
     <header class="card-header">
       <h2 class="card-title">Catálogo</h2>

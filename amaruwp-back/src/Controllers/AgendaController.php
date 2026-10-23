@@ -46,6 +46,17 @@ class AgendaController
         return jsonResponse(['status' => true, 'disponibilidad' => $items]);
     }
 
+    public function guardarHorario($request, $response)
+    {
+        return $this->run(function () use ($request) {
+            $sincronizado = (new AgendaService($this->empresa($request)))->reemplazarVentanas((array) (bodyOf($request)['horarios'] ?? []));
+            $items = Disponibilidad::where('ID_EMPRESA', $this->empresa($request))->where('F_STATUS', 1)
+                ->orderBy('N_DIA_SEMANA')->orderBy('C_HORA_INICIO')->get()->map(fn($v) => $this->ventana($v))->all();
+
+            return ['disponibilidad' => $items, 'sincronizado_google' => $sincronizado];
+        });
+    }
+
     public function agregarDisponibilidad($request, $response)
     {
         return $this->run(function () use ($request) {

@@ -555,23 +555,6 @@
 
 .textarea { resize: vertical; min-height: 96px; line-height: 1.5; }
 .field-error { color: var(--danger); font-size: 12.5px; }
-.phone-row { display: flex; gap: 10px; align-items: stretch; }
-.phone-row .input-phone { flex: 1; }
-.icon-btn {
-  flex-shrink: 0; width: 52px; min-height: 52px;
-  border: 1.5px solid var(--border); border-radius: var(--r-input);
-  background: white; color: var(--muted); cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  transition: all .35s cubic-bezier(.23,1,.32,1);
-}
-.icon-btn:hover { background: oklch(95% 0.04 25); color: var(--danger); border-color: var(--danger); }
-.add-phone {
-  align-self: flex-start; display: inline-flex; align-items: center; gap: 6px;
-  background: none; border: none; cursor: pointer;
-  font-size: 13.5px; font-weight: 600; color: var(--accent);
-  padding: 6px 2px;
-}
-.add-phone:hover { color: var(--fg); }
 .step-arrow, .step-num .check { display: inline-flex; }
 .step-num .check { display: none; }
 .step-card.done .step-num .check { display: inline-flex; }

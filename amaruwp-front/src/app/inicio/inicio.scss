@@ -206,3 +206,5 @@ h1 { font-family: var(--font-display); font-size: clamp(24px, 5vw, 32px); font-w
 @media (prefers-reduced-motion: reduce) {
     .toast { transition: opacity 200ms ease; transform: none; }
 }
+
+.acciones { margin-top: 16px; display: flex; justify-content: flex-end; }

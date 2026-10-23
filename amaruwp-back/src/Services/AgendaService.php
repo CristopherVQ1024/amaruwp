@@ -36,6 +36,51 @@ class AgendaService
         return ['N_DIA_SEMANA' => $dia, 'C_HORA_INICIO' => $ini, 'C_HORA_FIN' => $fin, 'N_SLOT_MINUTOS' => $slot];
     }
 
+    // valida una lista de ventanas y que no se solapen dentro del mismo dia
+    public static function normalizarVentanas(array $lista): array
+    {
+        $out = [];
+
+        foreach ($lista as $d) {
+            $v = self::validarVentana((array) $d);
+
+            foreach ($out as $o) {
+                if ($o['N_DIA_SEMANA'] === $v['N_DIA_SEMANA'] && $o['C_HORA_INICIO'] < $v['C_HORA_FIN'] && $o['C_HORA_FIN'] > $v['C_HORA_INICIO']) {
+                    throw new \DomainException('Hay horarios que se solapan en el mismo dia');
+                }
+            }
+
+            $out[] = $v;
+        }
+
+        return $out;
+    }
+
+    // reemplaza todo el horario, quita los eventos de Google de las ventanas anteriores y sincroniza las nuevas
+    public function reemplazarVentanas(array $lista): bool
+    {
+        $nuevas = self::normalizarVentanas($lista);
+
+        Capsule::connection()->transaction(function () use ($nuevas) {
+            foreach (Disponibilidad::where('ID_EMPRESA', $this->idEmpresa)->where('F_STATUS', 1)->get() as $v) {
+                $this->quitarEventoDisponibilidad($v);
+                $v->update(['F_STATUS' => 0, 'C_GOOGLE_EVENT_ID' => null]);
+            }
+
+            foreach ($nuevas as $n) {
+                Disponibilidad::create($n + ['ID_EMPRESA' => $this->idEmpresa]);
+            }
+        });
+
+        if (!$nuevas || !$this->google->conectado()) {
+            return false;
+        }
+
+        $this->sincronizarDisponibilidad();
+
+        return true;
+    }
+
     public function fecha(string $fecha): \DateTimeImmutable
     {
         $d = \DateTimeImmutable::createFromFormat('!Y-m-d', $fecha, $this->tz);

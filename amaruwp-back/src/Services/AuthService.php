@@ -39,6 +39,8 @@ class AuthService
 
     public function crearEmpresa(array $data): Empresa
     {
+        $horarios = \App\Services\AgendaService::normalizarVentanas((array) ($data['horarios'] ?? []));
+
         $empresa = Empresa::create([
             'C_NOMBRE' => trim($data['nombre']),
             'C_DIRECCION' => $data['direccion'] ?? null,
@@ -50,6 +52,10 @@ class AuthService
             if (trim((string) $tel) !== '') {
                 EmpresaTelefono::create(['ID_EMPRESA' => $empresa->ID, 'C_TELEFONO' => trim($tel)]);
             }
+        }
+
+        foreach ($horarios as $h) {
+            \App\Models\Disponibilidad::create($h + ['ID_EMPRESA' => $empresa->ID]);
         }
 
         return $empresa;

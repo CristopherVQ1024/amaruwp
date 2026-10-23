@@ -1,6 +1,8 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
-import { FormArray, NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
+import { HorarioEditor } from '../agenda/horario-editor';
+import { Horario, aVentanas, horarioVacio, validarHorario } from '../core/agenda';
 import { Auth } from '../core/auth';
 import { Icono } from '../core/icono';
 
@@ -11,7 +13,7 @@ interface Paso {
 
 @Component({
   selector: 'app-registrar-empresa',
-  imports: [ReactiveFormsModule, Icono],
+  imports: [ReactiveFormsModule, Icono, HorarioEditor],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './registrar-empresa.html',
   styleUrl: './registrar-empresa.scss',
@@ -23,8 +25,8 @@ export class RegistrarEmpresa {
 
   readonly pasos: Paso[] = [
     { titulo: 'Datos de tu negocio', desc: 'Nombre, dirección y descripción para que el agente hable de tu empresa.' },
-    { titulo: 'Teléfonos de contacto', desc: 'Los números que el agente puede compartir con tus clientes.' },
-    { titulo: 'Productos y agenda', desc: 'Después cargas tu catálogo y defines tus horarios de atención.' },
+    { titulo: 'Teléfono y horario', desc: 'El número que el agente comparte y los horarios en que atiendes citas.' },
+    { titulo: 'Catálogo y WhatsApp', desc: 'Después cargas tus productos y conectas tu WhatsApp Business.' },
   ];
 
   cargando = signal(false);
@@ -35,6 +37,7 @@ export class RegistrarEmpresa {
   foco = signal({ x: '-200px', y: '-200px' });
   cuadros = signal({ x: '0px', y: '0px', rot: '0deg' });
   desplazamiento = signal('');
+  horario = signal<Horario>(horarioVacio());
   toast = signal({ visible: false, mensaje: '', color: '#b91c1c' });
 
   private pausado = false;
@@ -44,7 +47,7 @@ export class RegistrarEmpresa {
     nombre: ['', [Validators.required, Validators.minLength(3)]],
     direccion: [''],
     descripcion: [''],
-    telefonos: this.fb.array([this.nuevoTelefono()]),
+    telefono: ['', [Validators.required, Validators.pattern(/^[0-9]{9}$/)]],
   });
 
   constructor() {
@@ -58,29 +61,8 @@ export class RegistrarEmpresa {
     });
   }
 
-  get telefonos(): FormArray {
-    return this.form.controls.telefonos;
-  }
-
-  private nuevoTelefono() {
-    return this.fb.control('', [Validators.required, Validators.pattern(/^[0-9]{9}$/)]);
-  }
-
-  agregarTelefono(): void {
-    this.telefonos.push(this.nuevoTelefono());
-  }
-
-  quitarTelefono(i: number): void {
-    if (this.telefonos.length > 1) this.telefonos.removeAt(i);
-  }
-
-  invalido(nombre: 'nombre'): boolean {
+  invalido(nombre: 'nombre' | 'telefono'): boolean {
     const c = this.form.controls[nombre];
-    return c.invalid && (c.touched || this.enviado());
-  }
-
-  telefonoInvalido(i: number): boolean {
-    const c = this.telefonos.at(i);
     return c.invalid && (c.touched || this.enviado());
   }
 
@@ -120,6 +102,13 @@ export class RegistrarEmpresa {
       return;
     }
 
+    const problema = validarHorario(this.horario());
+
+    if (problema) {
+      this.avisar(problema);
+      return;
+    }
+
     const v = this.form.getRawValue();
     this.cargando.set(true);
 
@@ -128,7 +117,8 @@ export class RegistrarEmpresa {
         nombre: v.nombre.trim(),
         direccion: v.direccion.trim(),
         descripcion: v.descripcion.trim(),
-        telefonos: v.telefonos.map((t: string) => '+51' + t),
+        telefonos: ['+51' + v.telefono],
+        horarios: aVentanas(this.horario()),
       });
       await this.router.navigate(['/inicio']);
     } catch (e: any) {

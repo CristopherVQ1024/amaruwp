@@ -29,6 +29,8 @@ class WebhookController
             $firma = 'sha256=' . hash_hmac('sha256', $raw, $secret);
 
             if (!hash_equals($firma, $request->getHeaderLine('X-Hub-Signature-256'))) {
+                ChatbotService::log(null, 'webhook', 'Firma invalida, revisar WA_APP_SECRET', ['firma_recibida' => $request->getHeaderLine('X-Hub-Signature-256') !== '']);
+
                 return jsonResponse(['status' => false], 403);
             }
         }

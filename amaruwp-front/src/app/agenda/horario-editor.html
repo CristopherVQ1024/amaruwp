@@ -1,0 +1,33 @@
+<div class="horario">
+  <div class="dias" role="group" aria-label="Días de atención">
+    <label class="dia todos" [class.on]="todos()">
+      <input type="checkbox" [checked]="todos()" [indeterminate]="algunos()" (change)="alternarTodos()">
+      <span>Todos</span>
+    </label>
+    @for (d of dias; track d.valor) {
+      <label class="dia" [class.on]="marcado(d.valor)">
+        <input type="checkbox" [checked]="marcado(d.valor)" (change)="alternarDia(d.valor)">
+        <span>{{ d.nombre }}</span>
+      </label>
+    }
+  </div>
+
+  <div class="horas">
+    <label class="campo">
+      <span>Desde</span>
+      <input type="time" [value]="horario().desde" (input)="cambiarHora('desde', $any($event.target).value)">
+    </label>
+    <label class="campo">
+      <span>Hasta</span>
+      <input type="time" [value]="horario().hasta" (input)="cambiarHora('hasta', $any($event.target).value)">
+    </label>
+  </div>
+
+  @if (horario().dias.length === 0) {
+    <p class="vacio">Marca los días en que atiendes. Sin horario el agente no podrá agendar citas.</p>
+  }
+
+  @if (error()) {
+    <p class="error" role="alert">{{ error() }}</p>
+  }
+</div>

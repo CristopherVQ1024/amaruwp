@@ -75,32 +75,25 @@
         <div class="field">
           <label class="field-label" for="descripcion">Descripción <span class="field-hint-inline">(Opcional)</span></label>
           <textarea class="input textarea" id="descripcion" formControlName="descripcion" rows="3"
-                    placeholder="Cuenta a qué se dedica tu negocio, qué ofreces y en qué horario atiendes"></textarea>
+                    placeholder="Cuenta a qué se dedica tu negocio y qué ofreces"></textarea>
           <div class="field-hint">El agente usa esta descripción para responder a tus clientes.</div>
         </div>
 
         <div class="field">
-          <span class="field-label">Teléfonos de contacto <span class="req">*</span></span>
-          @for (tel of telefonos.controls; track tel; let i = $index) {
-            <div class="phone-row">
-              <div class="input-phone">
-                <div class="input-phone-prefix">+51</div>
-                <input class="input-phone-num" type="tel" inputmode="numeric" maxlength="9" [formControl]="$any(tel)"
-                       [attr.aria-label]="'Teléfono ' + (i + 1)" placeholder="987654321">
-              </div>
-              @if (telefonos.length > 1) {
-                <button class="icon-btn" type="button" (click)="quitarTelefono(i)" aria-label="Quitar teléfono">
-                  <app-icono nombre="x" [tamano]="18" />
-                </button>
-              }
-            </div>
-            @if (telefonoInvalido(i)) {
-              <small class="field-error">Deben ser 9 dígitos</small>
-            }
+          <label class="field-label" for="telefono">Teléfono de contacto <span class="req">*</span></label>
+          <div class="input-phone">
+            <div class="input-phone-prefix">+51</div>
+            <input class="input-phone-num" id="telefono" type="tel" inputmode="numeric" maxlength="9" formControlName="telefono" placeholder="987654321">
+          </div>
+          @if (invalido('telefono')) {
+            <small class="field-error">Deben ser 9 dígitos</small>
           }
-          <button class="add-phone" type="button" (click)="agregarTelefono()">
-            <app-icono nombre="plus" [tamano]="16" /> Agregar otro teléfono
-          </button>
+        </div>
+
+        <div class="field">
+          <span class="field-label">Horario de atención para citas <span class="field-hint-inline">(Opcional)</span></span>
+          <app-horario-editor [(horario)]="horario" />
+          <div class="field-hint">Los días marcados comparten la misma hora de inicio y fin. Cada cita dura 30 minutos y podrás cambiarlo después.</div>
         </div>
       </div>
 

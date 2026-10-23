@@ -7,13 +7,13 @@ use GuzzleHttp\Client;
 // cliente de chat completions con tools, sirve para Mistral y OpenAI
 class LlmClient
 {
-    public function chat(array $messages, array $tools = []): array
+    public function chat(array $messages, array $tools = [], array $opciones = []): array
     {
         $payload = [
             'model' => $_ENV['LLM_MODEL'],
             'messages' => $messages,
-            'temperature' => 0.3,
-        ];
+            'temperature' => 0.1,
+        ] + $opciones;
 
         if ($tools) {
             $payload['tools'] = $tools;
